@@ -6,7 +6,7 @@ app.use(express.json({ limit: '10mb' }));
 const OPENWIRE_URL = process.env.OPENWIRE_URL || 'http://localhost:3030';
 const MODEL = process.env.INVOICER_MODEL || 'claude-sonnet-4.6';
 const PORT = process.env.PORT || 3001;
-const ROOT = path.join(__dirname);
+const ROOT = '/Users/aigaurav/.openclaw/workspace/invoicer';
 
 // Root → index.html (must be before static middleware)
 app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'index.html')));
