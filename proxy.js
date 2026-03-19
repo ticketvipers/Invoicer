@@ -9,7 +9,9 @@ const PORT = process.env.PORT || 3001;
 const ROOT = '/Users/aigaurav/.openclaw/workspace/invoicer';
 
 // Root → index.html (must be before static middleware)
-app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'index.html')));
+app.get('/', (req, res) => {
+  res.sendFile('index.html', { root: ROOT });
+});
 
 // Serve static assets
 app.use(express.static(ROOT));
