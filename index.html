@@ -371,13 +371,18 @@ async function callClaude(text) {
   }
 
   const data    = await resp.json();
-  const rawText = data?.content || '';
+  let rawText = data?.content || '';
+  // Strip markdown code fences if present
+  rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
   try { return JSON.parse(rawText); }
   catch (e) {
     // Try to extract JSON array from response
     const match = rawText.match(/\[[\s\S]*\]/);
-    if (match) return JSON.parse(match[0]);
-    throw new Error('Response was not valid JSON:\n' + rawText.slice(0, 300));
+    if (match) {
+      try { return JSON.parse(match[0]); } catch (_) {}
+    }
+    console.error('Raw Claude response:', rawText.slice(0, 500));
+    throw new Error('Response was not valid JSON. Check browser console for full response.\n\nPreview:\n' + rawText.slice(0, 200));
   }
 }
 

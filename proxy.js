@@ -34,7 +34,7 @@ app.post('/api/claude', async (req, res) => {
       body: JSON.stringify({
         model: MODEL,
         messages: [{ role: 'user', content: req.body.prompt || '' }],
-        max_tokens: 8192,
+        max_tokens: 16000,
       }),
     });
 
