@@ -6,13 +6,15 @@ app.use(express.json({ limit: '10mb' }));
 const OPENWIRE_URL = process.env.OPENWIRE_URL || 'http://localhost:3030';
 const MODEL = process.env.INVOICER_MODEL || 'claude-sonnet-4.6';
 const PORT = process.env.PORT || 3001;
+const ROOT = path.join(__dirname);
 
-// Serve static files (index.html, pdfs/, expected/, manifest.json)
-app.use(express.static(path.join(__dirname)));
+// Root → index.html (must be before static middleware)
+app.get('/', (req, res) => res.sendFile(path.join(ROOT, 'index.html')));
 
-// Health
-app.get('/health', (req, res) => res.json({ status: 'ok', backend: OPENWIRE_URL, model: MODEL }));
+// Serve static assets
+app.use(express.static(ROOT));
 
+// CORS preflight
 app.options('/api/claude', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'content-type');
@@ -20,31 +22,24 @@ app.options('/api/claude', (req, res) => {
   res.sendStatus(204);
 });
 
+// Claude proxy — forwards to OpenWire
 app.post('/api/claude', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   try {
-    const userPrompt = req.body.prompt || '';
-
-    const payload = {
-      model: MODEL,
-      messages: [{ role: 'user', content: userPrompt }],
-      max_tokens: 8192,
-    };
-
     const response = await fetch(`${OPENWIRE_URL}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: 'user', content: req.body.prompt || '' }],
+        max_tokens: 8192,
+      }),
     });
 
     const data = await response.json();
+    if (!response.ok) return res.status(response.status).json(data);
 
-    if (!response.ok) {
-      return res.status(response.status).json(data);
-    }
-
-    const content = data.choices?.[0]?.message?.content || '';
-    res.json({ content });
+    res.json({ content: data.choices?.[0]?.message?.content || '' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
