@@ -278,15 +278,6 @@ let lastResult  = null;
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 
-function getApiKey() { return localStorage.getItem('invoicer_api_key') || ''; }
-
-function updateKeyStatus() {
-  const key = getApiKey();
-  const el  = $('api-key-status');
-  if (key) { el.textContent = '✓ API key saved'; el.className = 'ok'; }
-  else     { el.textContent = '✗ No API key — set one above'; el.className = 'missing'; }
-}
-
 function syntaxHighlight(json) {
   return json
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -307,32 +298,11 @@ function showError(msg) {
 }
 function clearError() { $('inline-error').style.display = 'none'; }
 
-// ── API Key UI ────────────────────────────────────────────────────────────────
+// ── Settings UI ───────────────────────────────────────────────────────────────
 $('settings-toggle').addEventListener('click', () => {
   const p = $('settings-panel');
   p.style.display = p.style.display === 'none' ? 'block' : 'none';
-  if (p.style.display === 'block') {
-    $('api-key-input').value = getApiKey();
-    updateKeyStatus();
-  }
 });
-
-$('save-key-btn').addEventListener('click', () => {
-  const v = $('api-key-input').value.trim();
-  if (v) { localStorage.setItem('invoicer_api_key', v); updateKeyStatus(); }
-});
-
-$('clear-key-btn').addEventListener('click', () => {
-  localStorage.removeItem('invoicer_api_key');
-  $('api-key-input').value = '';
-  updateKeyStatus();
-});
-
-// If no key, show settings on load
-if (!getApiKey()) {
-  $('settings-panel').style.display = 'block';
-  updateKeyStatus();
-}
 
 // ── File handling ─────────────────────────────────────────────────────────────
 const dropZone  = $('drop-zone');
