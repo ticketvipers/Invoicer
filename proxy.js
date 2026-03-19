@@ -28,12 +28,18 @@ app.options('/api/claude', (req, res) => {
 app.post('/api/claude', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   try {
+    const messages = [];
+    if (req.body.system) {
+      messages.push({ role: 'system', content: req.body.system });
+    }
+    messages.push({ role: 'user', content: req.body.prompt || '' });
+
     const response = await fetch(`${OPENWIRE_URL}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
-        messages: [{ role: 'user', content: req.body.prompt || '' }],
+        messages,
         max_tokens: 16000,
       }),
     });

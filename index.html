@@ -252,7 +252,7 @@ const SCHEMA_STR = JSON.stringify([{
   pdfContent: null, invoiceStatus: 1, resultMessage: null, pageRanges: [1,2,3]
 }], null, 2);
 
-const EXTRACTION_PROMPT = `You are an invoice parser. Extract all invoices from the following PDF text and return a JSON array.
+const SYSTEM_PROMPT = `You are an invoice parser. Extract all invoices from PDF text and return a JSON array.
 
 Rules:
 - Each distinct invoice number = one array element
@@ -266,10 +266,7 @@ Rules:
 - Return ONLY a valid JSON array. No markdown, no prose, no code fences.
 
 Target schema:
-[SCHEMA_PLACEHOLDER]
-
-PDF text:
-[TEXT_PLACEHOLDER]`;
+${SCHEMA_STR}`;
 
 // ── State ───────────────────────────────────────────────────────────────────
 let currentFile = null;
@@ -355,14 +352,10 @@ async function extractText(file) {
 
 // ── Call Claude via OpenWire proxy ────────────────────────────────────────────
 async function callClaude(text) {
-  const prompt = EXTRACTION_PROMPT
-    .replace('[SCHEMA_PLACEHOLDER]', SCHEMA_STR)
-    .replace('[TEXT_PLACEHOLDER]', text);
-
   const resp = await fetch(PROXY_URL, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt })
+    body: JSON.stringify({ system: SYSTEM_PROMPT, prompt: text })
   });
 
   if (!resp.ok) {
