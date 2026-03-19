@@ -166,13 +166,8 @@
   <!-- Settings panel -->
   <div id="settings-panel" style="display:none">
     <h2>Settings</h2>
-    <label for="api-key-input">Anthropic API Key</label>
-    <div class="settings-row">
-      <input type="password" id="api-key-input" placeholder="sk-ant-..."/>
-      <button class="btn-primary btn-sm" id="save-key-btn">Save</button>
-      <button class="btn-secondary btn-sm" id="clear-key-btn">Clear</button>
-    </div>
-    <div id="api-key-status"></div>
+    <p style="font-size:.85rem;color:var(--muted)">Using <strong>OpenWire</strong> at <code>localhost:3030</code> via local proxy on <code>localhost:3001</code>. No API key required.</p>
+    <div id="api-key-status" class="ok">✓ OpenWire proxy active</div>
   </div>
 
   <!-- Drop zone -->
@@ -388,27 +383,16 @@ async function extractText(file) {
   return pages.join('\n---PAGE BREAK---\n');
 }
 
-// ── Call Claude ───────────────────────────────────────────────────────────────
+// ── Call Claude via OpenWire proxy ────────────────────────────────────────────
 async function callClaude(text) {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error('No API key set. Open Settings and enter your Anthropic API key.');
-
   const prompt = EXTRACTION_PROMPT
     .replace('[SCHEMA_PLACEHOLDER]', SCHEMA_STR)
     .replace('[TEXT_PLACEHOLDER]', text);
 
   const resp = await fetch(PROXY_URL, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 8192,
-      messages: [{ role: 'user', content: prompt }]
-    })
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ prompt })
   });
 
   if (!resp.ok) {
@@ -417,25 +401,19 @@ async function callClaude(text) {
   }
 
   const data    = await resp.json();
-  const rawText = data?.content?.[0]?.text || '';
+  const rawText = data?.content || '';
   try { return JSON.parse(rawText); }
   catch (e) {
     // Try to extract JSON array from response
     const match = rawText.match(/\[[\s\S]*\]/);
     if (match) return JSON.parse(match[0]);
-    throw new Error('Claude response was not valid JSON:\n' + rawText.slice(0, 300));
+    throw new Error('Response was not valid JSON:\n' + rawText.slice(0, 300));
   }
 }
 
 // ── Parse button ──────────────────────────────────────────────────────────────
 $('parse-btn').addEventListener('click', async () => {
   if (!currentFile) return;
-  if (!getApiKey()) {
-    $('settings-panel').style.display = 'block';
-    updateKeyStatus();
-    showError('Please set your API key in Settings first.');
-    return;
-  }
 
   $('spinner').style.display    = 'flex';
   $('output-section').style.display = 'none';
