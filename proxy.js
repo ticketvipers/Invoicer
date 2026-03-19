@@ -87,6 +87,52 @@ app.post('/api/claude', async (req, res) => {
   }
 });
 
+// Save expected JSON + update manifest
+app.post('/api/save-expected', async (req, res) => {
+  const fs = require('fs');
+  const { pdfName, result } = req.body;
+  if (!pdfName || !result) return res.status(400).json({ error: 'pdfName and result required' });
+
+  const safeName = path.basename(pdfName).replace(/\.pdf$/i, '');
+  const expectedPath = path.join(ROOT, 'expected', `${safeName}.json`);
+  const manifestPath = path.join(ROOT, 'manifest.json');
+
+  // Write expected JSON
+  fs.mkdirSync(path.join(ROOT, 'expected'), { recursive: true });
+  fs.writeFileSync(expectedPath, JSON.stringify(result, null, 2));
+
+  // Update manifest
+  let manifest = { tests: [] };
+  try { manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')); } catch (_) {}
+  const entry = { pdf: `pdfs/${safeName}.pdf`, expected: `expected/${safeName}.json` };
+  const idx = manifest.tests.findIndex(t => t.pdf === entry.pdf);
+  if (idx >= 0) manifest.tests[idx] = entry;
+  else manifest.tests.push(entry);
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+
+  res.json({ ok: true, saved: `expected/${safeName}.json` });
+});
+
+// Save uploaded PDF to pdfs/
+app.post('/api/save-pdf', async (req, res) => {
+  const fs = require('fs');
+  const multer = require('multer');
+  res.status(400).json({ error: 'Use /api/save-pdf-base64 instead' });
+});
+
+app.post('/api/save-pdf-base64', async (req, res) => {
+  const fs = require('fs');
+  const { pdfName, pdfBase64 } = req.body;
+  if (!pdfName || !pdfBase64) return res.status(400).json({ error: 'pdfName and pdfBase64 required' });
+
+  const safeName = path.basename(pdfName);
+  const pdfPath = path.join(ROOT, 'pdfs', safeName);
+  fs.mkdirSync(path.join(ROOT, 'pdfs'), { recursive: true });
+  fs.writeFileSync(pdfPath, Buffer.from(pdfBase64, 'base64'));
+
+  res.json({ ok: true, saved: `pdfs/${safeName}` });
+});
+
 app.listen(PORT, () => {
   console.log(`Invoicer running on http://localhost:${PORT}`);
   console.log(`  → OpenWire: ${OPENWIRE_URL}`);

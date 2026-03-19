@@ -203,6 +203,7 @@
       <div class="output-actions">
         <button class="btn-secondary btn-sm" id="copy-btn">📋 Copy</button>
         <button class="btn-secondary btn-sm" id="download-btn">⬇️ Download JSON</button>
+        <button class="btn-secondary btn-sm" id="save-expected-btn" title="Save this result as the expected output for testing">💾 Save as Expected</button>
       </div>
     </div>
     <pre id="json-output"></pre>
@@ -462,6 +463,44 @@ $('download-btn').addEventListener('click', () => {
   a.download     = $('download-btn').dataset.filename || 'invoices.json';
   a.click();
   URL.revokeObjectURL(url);
+});
+
+// ── Save as Expected ──────────────────────────────────────────────────────────
+$('save-expected-btn').addEventListener('click', async () => {
+  if (!lastResult || !currentFile) return;
+  const btn = $('save-expected-btn');
+  btn.disabled = true; btn.textContent = '⏳ Saving…';
+
+  try {
+    // Save PDF to pdfs/
+    const pdfBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(currentFile);
+    });
+    await fetch('/api/save-pdf-base64', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pdfName: currentFile.name, pdfBase64 })
+    });
+
+    // Save expected JSON + update manifest
+    const resp = await fetch('/api/save-expected', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pdfName: currentFile.name, result: lastResult })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error);
+
+    btn.textContent = '✅ Saved!';
+    setTimeout(() => { btn.textContent = '💾 Save as Expected'; btn.disabled = false; }, 2500);
+  } catch (err) {
+    btn.textContent = '❌ Failed';
+    showError('Save failed: ' + err.message);
+    setTimeout(() => { btn.textContent = '💾 Save as Expected'; btn.disabled = false; }, 2500);
+  }
 });
 
 // ── Test Harness ──────────────────────────────────────────────────────────────
