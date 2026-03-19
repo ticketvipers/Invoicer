@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Invoicer — PDF Invoice Parser</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #7c6af7;
+    --accent2: #5eead4;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --error: #f87171;
+    --warn: #fbbf24;
+    --pass: #34d399;
+    --fail: #f87171;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px; border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em; }
+  header h1 span { color: var(--accent); }
+  .header-actions { display: flex; gap: 10px; }
+  button {
+    cursor: pointer; border: none; border-radius: var(--radius);
+    font-size: .85rem; font-weight: 600; padding: 8px 16px;
+    transition: opacity .15s, transform .1s;
+  }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .45; cursor: default; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-sm { padding: 6px 12px; font-size: .8rem; }
+  main { max-width: 900px; margin: 32px auto; padding: 0 20px; }
+
+  /* Settings panel */
+  #settings-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 24px;
+  }
+  #settings-panel h2 { font-size: 1rem; margin-bottom: 12px; }
+  #settings-panel label { font-size: .85rem; color: var(--muted); display: block; margin-bottom: 6px; }
+  #settings-panel input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text); padding: 9px 12px;
+    font-size: .9rem; outline: none;
+  }
+  #settings-panel input:focus { border-color: var(--accent); }
+  .settings-row { display: flex; gap: 10px; align-items: flex-end; margin-top: 10px; }
+  .settings-row input { flex: 1; }
+  #api-key-status { font-size: .8rem; margin-top: 6px; }
+  #api-key-status.ok { color: var(--pass); }
+  #api-key-status.missing { color: var(--error); }
+
+  /* Drop zone */
+  #drop-zone {
+    border: 2px dashed var(--border); border-radius: 12px;
+    padding: 48px 24px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: var(--surface);
+  }
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--accent); background: rgba(124,106,247,.07);
+  }
+  #drop-zone svg { opacity: .4; margin-bottom: 12px; }
+  #drop-zone p { color: var(--muted); font-size: .9rem; }
+  #drop-zone strong { color: var(--text); }
+  #file-input { display: none; }
+  #file-info {
+    display: none; margin-top: 14px; padding: 10px 16px;
+    background: var(--bg); border-radius: var(--radius);
+    font-size: .85rem; color: var(--accent2);
+    border: 1px solid var(--border);
+  }
+  #inline-error { color: var(--error); font-size: .85rem; margin-top: 8px; display: none; }
+
+  /* Controls */
+  .controls { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  /* Warnings */
+  .warn-banner {
+    background: rgba(251,191,36,.1); border: 1px solid var(--warn);
+    border-radius: var(--radius); padding: 10px 14px;
+    font-size: .85rem; color: var(--warn); margin-top: 14px;
+    display: none;
+  }
+
+  /* Spinner */
+  .spinner-wrap { display: none; align-items: center; gap: 12px; margin-top: 20px; color: var(--muted); font-size: .9rem; }
+  .spinner {
+    width: 22px; height: 22px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Output */
+  #output-section { display: none; margin-top: 28px; }
+  .output-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; flex-wrap: wrap; gap: 10px;
+  }
+  #invoice-count { font-size: .95rem; font-weight: 600; color: var(--accent2); }
+  .output-actions { display: flex; gap: 8px; }
+  #json-output {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px;
+    font-size: .8rem; line-height: 1.6; max-height: 520px;
+    overflow: auto; white-space: pre-wrap; word-break: break-all;
+  }
+  /* Syntax highlight classes */
+  .jk { color: #93c5fd; }   /* key */
+  .js { color: #86efac; }   /* string value */
+  .jn { color: #fca5a5; }   /* null */
+  .ji { color: #fbbf24; }   /* number */
+  .jb { color: #c084fc; }   /* boolean */
+
+  /* Test harness */
+  #test-section { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 24px; display: none; }
+  #test-section h2 { font-size: 1rem; margin-bottom: 14px; }
+  #test-results { margin-top: 14px; display: flex; flex-direction: column; gap: 12px; }
+  .test-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .test-card-header {
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer;
+  }
+  .test-card-name { font-size: .9rem; font-weight: 600; }
+  .badge {
+    font-size: .75rem; font-weight: 700; padding: 3px 10px;
+    border-radius: 99px; letter-spacing: .04em;
+  }
+  .badge-pass { background: rgba(52,211,153,.15); color: var(--pass); }
+  .badge-fail { background: rgba(248,113,113,.15); color: var(--fail); }
+  .badge-running { background: rgba(124,106,247,.15); color: var(--accent); }
+  .diff-table { margin-top: 12px; width: 100%; border-collapse: collapse; font-size: .78rem; display: none; }
+  .diff-table th { text-align: left; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--border); }
+  .diff-table td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+  .diff-table tr.diff-row td { background: rgba(248,113,113,.07); }
+  .diff-table code { font-family: monospace; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧾 <span>Invoicer</span></h1>
+  <div class="header-actions">
+    <button class="btn-ghost btn-sm" id="settings-toggle">⚙️ Settings</button>
+    <button class="btn-ghost btn-sm" id="tests-toggle">🧪 Run Tests</button>
+  </div>
+</header>
+
+<main>
+  <!-- Settings panel -->
+  <div id="settings-panel" style="display:none">
+    <h2>Settings</h2>
+    <label for="api-key-input">Anthropic API Key</label>
+    <div class="settings-row">
+      <input type="password" id="api-key-input" placeholder="sk-ant-..."/>
+      <button class="btn-primary btn-sm" id="save-key-btn">Save</button>
+      <button class="btn-secondary btn-sm" id="clear-key-btn">Clear</button>
+    </div>
+    <div id="api-key-status"></div>
+  </div>
+
+  <!-- Drop zone -->
+  <div id="drop-zone">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/>
+      <line x1="9" y1="15" x2="15" y2="15"/>
+    </svg>
+    <p><strong>Drop a PDF here</strong> or <strong id="browse-link" style="color:var(--accent);cursor:pointer">browse</strong></p>
+    <p style="margin-top:6px">PDF files only</p>
+    <div id="file-info"></div>
+    <div id="inline-error"></div>
+  </div>
+  <input type="file" id="file-input" accept=".pdf"/>
+
+  <div class="warn-banner" id="warn-banner"></div>
+
+  <div class="controls">
+    <button class="btn-primary" id="parse-btn" disabled>Parse Invoices</button>
+  </div>
+
+  <div class="spinner-wrap" id="spinner">
+    <div class="spinner"></div>
+    <span>Extracting text &amp; calling Claude…</span>
+  </div>
+
+  <!-- Output -->
+  <div id="output-section">
+    <div class="output-header">
+      <span id="invoice-count"></span>
+      <div class="output-actions">
+        <button class="btn-secondary btn-sm" id="copy-btn">📋 Copy</button>
+        <button class="btn-secondary btn-sm" id="download-btn">⬇️ Download JSON</button>
+      </div>
+    </div>
+    <pre id="json-output"></pre>
+  </div>
+
+  <!-- Test harness -->
+  <div id="test-section">
+    <h2>🧪 Test Harness</h2>
+    <button class="btn-primary btn-sm" id="run-tests-btn">Run All Tests</button>
+    <div id="test-results"></div>
+  </div>
+</main>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const PROXY_URL  = 'http://localhost:3001/api/claude';
+const MODEL      = 'claude-sonnet-4-5';
+const SCHEMA_STR = JSON.stringify([{
+  invoiceModel: {
+    header: {
+      invoiceNumber: "string", invoiceDate: "YYYYMMDD",
+      orderNumber: null, orderDate: null, salesperson: null, customerNumber: null,
+      customerPurchaseOrder: "string", vendorAddress: null,
+      billToAddress: { name:"", address1:"", address2:null, addressOther:null, city:"", state:"", zip:"", phone:null, fax:null },
+      shipToAddress: { name:"", address1:"", address2:null, addressOther:null, city:"", state:"", zip:"", phone:null, fax:null },
+      vendorName: null, shipMethod: null, terms: "string"
+    },
+    details: {
+      invoiceLineItems: [{
+        lineNumber:1, itemName:"string", itemId:"string", unit:null, catchWeight:null,
+        qtyOrdered:"string", qtyShipped:"string", qtyBackOrdered:null,
+        price:"string", extendedPrice:"string", addons:[]
+      }]
+    },
+    footer: {
+      subtotal:"string", total:"string",
+      addons:[
+        {addonsubType:null, addonsubTypeId:6, amount:"string"},
+        {addonsubType:null, addonsubTypeId:2, amount:"string"},
+        {addonsubType:null, addonsubTypeId:3, amount:"string"}
+      ]
+    }
+  },
+  pdfContent: null, invoiceStatus: 1, resultMessage: null, pageRanges: [1,2,3]
+}], null, 2);
+
+const EXTRACTION_PROMPT = `You are an invoice parser. Extract all invoices from the following PDF text and return a JSON array.
+
+Rules:
+- Each distinct invoice number = one array element
+- invoiceDate: format as YYYYMMDD regardless of input format
+- customerPurchaseOrder: strip any leading "PO #-", "PO#-", or "PO # -" prefix
+- Credit memos: include in array, set resultMessage to "Credit memo", quantities/prices may be negative
+- lineItems: number from 1, skip header rows/subtotals/blank rows
+- Always include all 3 footer addons (addonsubTypeId 6, 2, 3) — use "0.00" if not found
+- pageRanges: list which 1-indexed pages belong to each invoice
+- Strip $ and , from all monetary strings
+- Return ONLY a valid JSON array. No markdown, no prose, no code fences.
+
+Target schema:
+[SCHEMA_PLACEHOLDER]
+
+PDF text:
+[TEXT_PLACEHOLDER]`;
+
+// ── State ───────────────────────────────────────────────────────────────────
+let currentFile = null;
+let lastResult  = null;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function getApiKey() { return localStorage.getItem('invoicer_api_key') || ''; }
+
+function updateKeyStatus() {
+  const key = getApiKey();
+  const el  = $('api-key-status');
+  if (key) { el.textContent = '✓ API key saved'; el.className = 'ok'; }
+  else     { el.textContent = '✗ No API key — set one above'; el.className = 'missing'; }
+}
+
+function syntaxHighlight(json) {
+  return json
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+      if (/^"/.test(m)) {
+        if (/:$/.test(m)) return `<span class="jk">${m}</span>`;
+        return `<span class="js">${m}</span>`;
+      }
+      if (/null/.test(m)) return `<span class="jn">${m}</span>`;
+      if (/true|false/.test(m)) return `<span class="jb">${m}</span>`;
+      return `<span class="ji">${m}</span>`;
+    });
+}
+
+function showError(msg) {
+  const el = $('inline-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function clearError() { $('inline-error').style.display = 'none'; }
+
+// ── API Key UI ────────────────────────────────────────────────────────────────
+$('settings-toggle').addEventListener('click', () => {
+  const p = $('settings-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  if (p.style.display === 'block') {
+    $('api-key-input').value = getApiKey();
+    updateKeyStatus();
+  }
+});
+
+$('save-key-btn').addEventListener('click', () => {
+  const v = $('api-key-input').value.trim();
+  if (v) { localStorage.setItem('invoicer_api_key', v); updateKeyStatus(); }
+});
+
+$('clear-key-btn').addEventListener('click', () => {
+  localStorage.removeItem('invoicer_api_key');
+  $('api-key-input').value = '';
+  updateKeyStatus();
+});
+
+// If no key, show settings on load
+if (!getApiKey()) {
+  $('settings-panel').style.display = 'block';
+  updateKeyStatus();
+}
+
+// ── File handling ─────────────────────────────────────────────────────────────
+const dropZone  = $('drop-zone');
+const fileInput = $('file-input');
+
+$('browse-link').addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  handleFile(e.dataTransfer.files[0]);
+});
+
+async function handleFile(file) {
+  clearError();
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    showError('Only .pdf files are accepted.'); return;
+  }
+  currentFile = file;
+  // Get page count
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const pc  = pdf.numPages;
+    const fi  = $('file-info');
+    fi.textContent = `📄 ${file.name}  ·  ${pc} page${pc !== 1 ? 's' : ''}`;
+    fi.style.display = 'block';
+    $('parse-btn').disabled = false;
+  } catch (err) {
+    showError('Could not read PDF: ' + err.message);
+  }
+}
+
+// ── Extract text from PDF ─────────────────────────────────────────────────────
+async function extractText(file) {
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({ data: buf }).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    pages.push(content.items.map(s => s.str).join(' '));
+  }
+  return pages.join('\n---PAGE BREAK---\n');
+}
+
+// ── Call Claude ───────────────────────────────────────────────────────────────
+async function callClaude(text) {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error('No API key set. Open Settings and enter your Anthropic API key.');
+
+  const prompt = EXTRACTION_PROMPT
+    .replace('[SCHEMA_PLACEHOLDER]', SCHEMA_STR)
+    .replace('[TEXT_PLACEHOLDER]', text);
+
+  const resp = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 8192,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `HTTP ${resp.status}`);
+  }
+
+  const data    = await resp.json();
+  const rawText = data?.content?.[0]?.text || '';
+  try { return JSON.parse(rawText); }
+  catch (e) {
+    // Try to extract JSON array from response
+    const match = rawText.match(/\[[\s\S]*\]/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error('Claude response was not valid JSON:\n' + rawText.slice(0, 300));
+  }
+}
+
+// ── Parse button ──────────────────────────────────────────────────────────────
+$('parse-btn').addEventListener('click', async () => {
+  if (!currentFile) return;
+  if (!getApiKey()) {
+    $('settings-panel').style.display = 'block';
+    updateKeyStatus();
+    showError('Please set your API key in Settings first.');
+    return;
+  }
+
+  $('spinner').style.display    = 'flex';
+  $('output-section').style.display = 'none';
+  $('warn-banner').style.display    = 'none';
+  $('parse-btn').disabled = true;
+  clearError();
+
+  try {
+    const text = await extractText(currentFile);
+
+    if (text.length > 60000) {
+      const wb = $('warn-banner');
+      wb.textContent = `⚠️ Extracted text is ${text.length.toLocaleString()} characters (> 60K). Claude may hit context limits.`;
+      wb.style.display = 'block';
+    }
+
+    const result = await callClaude(text);
+    lastResult   = result;
+    renderOutput(result, currentFile.name);
+  } catch (err) {
+    showError('Error: ' + err.message);
+  } finally {
+    $('spinner').style.display = 'none';
+    $('parse-btn').disabled    = false;
+  }
+});
+
+function renderOutput(result, filename) {
+  const n   = Array.isArray(result) ? result.length : '?';
+  $('invoice-count').textContent = `${n} invoice${n !== 1 ? 's' : ''} parsed`;
+  const pretty = JSON.stringify(result, null, 2);
+  $('json-output').innerHTML = syntaxHighlight(pretty);
+  $('output-section').style.display = 'block';
+
+  // Store filename for download
+  $('download-btn').dataset.filename = filename.replace(/\.pdf$/i, '') + '.json';
+}
+
+// ── Copy ──────────────────────────────────────────────────────────────────────
+$('copy-btn').addEventListener('click', async () => {
+  if (!lastResult) return;
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(lastResult, null, 2));
+    const btn = $('copy-btn');
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy', 2000);
+  } catch { showError('Clipboard copy failed.'); }
+});
+
+// ── Download ──────────────────────────────────────────────────────────────────
+$('download-btn').addEventListener('click', () => {
+  if (!lastResult) return;
+  const blob     = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
+  const url      = URL.createObjectURL(blob);
+  const a        = document.createElement('a');
+  a.href         = url;
+  a.download     = $('download-btn').dataset.filename || 'invoices.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ── Test Harness ──────────────────────────────────────────────────────────────
+$('tests-toggle').addEventListener('click', () => {
+  const s = $('test-section');
+  s.style.display = s.style.display === 'none' ? 'block' : 'none';
+});
+
+$('run-tests-btn').addEventListener('click', runTests);
+
+async function runTests() {
+  const btn = $('run-tests-btn');
+  btn.disabled = true; btn.textContent = 'Running…';
+  $('test-results').innerHTML = '';
+
+  let manifest;
+  try {
+    const r = await fetch('/manifest.json');
+    manifest = await r.json();
+  } catch (e) {
+    $('test-results').innerHTML = `<div style="color:var(--error)">Could not load manifest.json: ${e.message}</div>`;
+    btn.disabled = false; btn.textContent = 'Run All Tests'; return;
+  }
+
+  const tests = manifest.tests || [];
+  if (!tests.length) {
+    $('test-results').innerHTML = '<div style="color:var(--muted)">No tests defined in manifest.json.</div>';
+    btn.disabled = false; btn.textContent = 'Run All Tests'; return;
+  }
+
+  for (let i = 0; i < tests.length; i++) {
+    const t    = tests[i];
+    const card = document.createElement('div');
+    card.className = 'test-card';
+    card.innerHTML = `
+      <div class="test-card-header">
+        <span class="test-card-name">${t.pdf}</span>
+        <span class="badge badge-running">RUNNING</span>
+      </div>`;
+    $('test-results').appendChild(card);
+
+    try {
+      // Fetch PDF
+      const pdfResp = await fetch('/' + t.pdf);
+      if (!pdfResp.ok) throw new Error(`PDF not found: ${t.pdf}`);
+      const pdfBuf = await pdfResp.arrayBuffer();
+
+      // Extract text
+      const pdf   = await pdfjsLib.getDocument({ data: pdfBuf }).promise;
+      const pages = [];
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const pg  = await pdf.getPage(p);
+        const ct  = await pg.getTextContent();
+        pages.push(ct.items.map(s => s.str).join(' '));
+      }
+      const text = pages.join('\n---PAGE BREAK---\n');
+
+      // Call Claude
+      const actual = await callClaude(text);
+
+      // Fetch expected
+      const expResp = await fetch('/' + t.expected);
+      if (!expResp.ok) throw new Error(`Expected file not found: ${t.expected}`);
+      const expected = await expResp.json();
+
+      // Diff
+      const diffs = deepDiff(expected, actual);
+      const badge = card.querySelector('.badge');
+      if (diffs.length === 0) {
+        badge.textContent = 'PASS'; badge.className = 'badge badge-pass';
+      } else {
+        badge.textContent = 'FAIL'; badge.className = 'badge badge-fail';
+        const table = buildDiffTable(diffs);
+        card.appendChild(table);
+        table.style.display = 'table';
+      }
+    } catch (err) {
+      const badge = card.querySelector('.badge');
+      badge.textContent = 'ERROR'; badge.className = 'badge badge-fail';
+      const msg = document.createElement('div');
+      msg.style.cssText = 'color:var(--error);font-size:.8rem;margin-top:8px';
+      msg.textContent = err.message;
+      card.appendChild(msg);
+    }
+
+    // Rate limit: 1s delay between tests
+    if (i < tests.length - 1) await sleep(1000);
+  }
+
+  btn.disabled = false; btn.textContent = 'Run All Tests';
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function deepDiff(expected, actual, path = '') {
+  const diffs = [];
+  if (typeof expected !== typeof actual) {
+    diffs.push({ path, expected, actual }); return diffs;
+  }
+  if (expected === null || typeof expected !== 'object') {
+    if (expected !== actual) diffs.push({ path, expected, actual });
+    return diffs;
+  }
+  if (Array.isArray(expected)) {
+    const len = Math.max(expected.length, Array.isArray(actual) ? actual.length : 0);
+    for (let i = 0; i < len; i++) {
+      diffs.push(...deepDiff(expected[i], (actual||[])[i], `${path}[${i}]`));
+    }
+    return diffs;
+  }
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual||{})]);
+  for (const k of keys) {
+    diffs.push(...deepDiff(expected[k], (actual||{})[k], path ? `${path}.${k}` : k));
+  }
+  return diffs;
+}
+
+function buildDiffTable(diffs) {
+  const table = document.createElement('table');
+  table.className = 'diff-table';
+  table.innerHTML = `<tr><th>Path</th><th>Expected</th><th>Actual</th></tr>`;
+  for (const d of diffs) {
+    const tr = document.createElement('tr');
+    tr.className = 'diff-row';
+    tr.innerHTML = `
+      <td><code>${d.path}</code></td>
+      <td><code>${JSON.stringify(d.expected)}</code></td>
+      <td><code>${JSON.stringify(d.actual)}</code></td>`;
+    table.appendChild(tr);
+  }
+  return table;
+}
+</script>
+</body>
+</html>
