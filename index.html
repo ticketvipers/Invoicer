@@ -350,7 +350,7 @@ async function extractText(file) {
   return pages.join('\n---PAGE BREAK---\n');
 }
 
-// ── Call Claude via OpenWire proxy ────────────────────────────────────────────
+// ── Call Claude via OpenWire proxy (SSE streaming) ────────────────────────────
 async function callClaude(text) {
   const resp = await fetch(PROXY_URL, {
     method: 'POST',
@@ -359,23 +359,44 @@ async function callClaude(text) {
   });
 
   if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `HTTP ${resp.status}`);
+    throw new Error(`HTTP ${resp.status}`);
   }
 
-  const data    = await resp.json();
-  let rawText = data?.content || '';
+  // Read SSE stream
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+  }
+
+  // Parse last SSE data line
+  const lines = buffer.split('\n');
+  let rawText = '';
+  for (const line of lines) {
+    if (!line.startsWith('data: ')) continue;
+    try {
+      const parsed = JSON.parse(line.slice(6));
+      if (parsed.error) throw new Error(parsed.error);
+      if (parsed.content) rawText = parsed.content;
+    } catch (e) {
+      if (e.message !== 'JSON parse error') throw e;
+    }
+  }
+
   // Strip markdown code fences if present
   rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
   try { return JSON.parse(rawText); }
   catch (e) {
-    // Try to extract JSON array from response
     const match = rawText.match(/\[[\s\S]*\]/);
     if (match) {
       try { return JSON.parse(match[0]); } catch (_) {}
     }
     console.error('Raw Claude response:', rawText.slice(0, 500));
-    throw new Error('Response was not valid JSON. Check browser console for full response.\n\nPreview:\n' + rawText.slice(0, 200));
+    throw new Error('Response was not valid JSON. Check browser console.\n\nPreview:\n' + rawText.slice(0, 200));
   }
 }
 

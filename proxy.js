@@ -8,7 +8,7 @@ const MODEL = process.env.INVOICER_MODEL || 'claude-sonnet-4.6';
 const PORT = process.env.PORT || 3001;
 const ROOT = '/Users/aigaurav/.openclaw/workspace/invoicer';
 
-// Root → index.html (must be before static middleware)
+// Root → index.html
 app.get('/', (req, res) => {
   res.sendFile('index.html', { root: ROOT });
 });
@@ -24,9 +24,13 @@ app.options('/api/claude', (req, res) => {
   res.sendStatus(204);
 });
 
-// Claude proxy — forwards to OpenWire
+// Claude proxy — streams from OpenWire to avoid Cloudflare 524 timeout
 app.post('/api/claude', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
   try {
     const messages = [];
     if (req.body.system) {
@@ -41,15 +45,45 @@ app.post('/api/claude', async (req, res) => {
         model: MODEL,
         messages,
         max_tokens: 16000,
+        stream: true,
       }),
     });
 
-    const data = await response.json();
-    if (!response.ok) return res.status(response.status).json(data);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      res.write(`data: ${JSON.stringify({ error: err.error?.message || `HTTP ${response.status}` })}\n\n`);
+      return res.end();
+    }
 
-    res.json({ content: data.choices?.[0]?.message?.content || '' });
+    let fullContent = '';
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.choices?.[0]?.delta?.content || '';
+          if (delta) fullContent += delta;
+        } catch (_) {}
+      }
+    }
+
+    // Send complete content as final SSE event
+    res.write(`data: ${JSON.stringify({ content: fullContent })}\n\n`);
+    res.end();
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+    res.end();
   }
 });
 
