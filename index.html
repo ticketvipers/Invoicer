@@ -1,638 +1,1027 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Invoicer — PDF Invoice Parser</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --border: #2a2d3a;
-    --accent: #7c6af7;
-    --accent2: #5eead4;
-    --text: #e2e8f0;
-    --muted: #64748b;
-    --error: #f87171;
-    --warn: #fbbf24;
-    --pass: #34d399;
-    --fail: #f87171;
-    --radius: 8px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 28px; border-bottom: 1px solid var(--border);
-    background: var(--surface);
-  }
-  header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em; }
-  header h1 span { color: var(--accent); }
-  .header-actions { display: flex; gap: 10px; }
-  button {
-    cursor: pointer; border: none; border-radius: var(--radius);
-    font-size: .85rem; font-weight: 600; padding: 8px 16px;
-    transition: opacity .15s, transform .1s;
-  }
-  button:active { transform: scale(.97); }
-  button:disabled { opacity: .45; cursor: default; }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-secondary { background: var(--border); color: var(--text); }
-  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
-  .btn-sm { padding: 6px 12px; font-size: .8rem; }
-  main { max-width: 900px; margin: 32px auto; padding: 0 20px; }
-
-  /* Settings panel */
-  #settings-panel {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 20px; margin-bottom: 24px;
-  }
-  #settings-panel h2 { font-size: 1rem; margin-bottom: 12px; }
-  #settings-panel label { font-size: .85rem; color: var(--muted); display: block; margin-bottom: 6px; }
-  #settings-panel input {
-    width: 100%; background: var(--bg); border: 1px solid var(--border);
-    border-radius: var(--radius); color: var(--text); padding: 9px 12px;
-    font-size: .9rem; outline: none;
-  }
-  #settings-panel input:focus { border-color: var(--accent); }
-  .settings-row { display: flex; gap: 10px; align-items: flex-end; margin-top: 10px; }
-  .settings-row input { flex: 1; }
-  #api-key-status { font-size: .8rem; margin-top: 6px; }
-  #api-key-status.ok { color: var(--pass); }
-  #api-key-status.missing { color: var(--error); }
-
-  /* Drop zone */
-  #drop-zone {
-    border: 2px dashed var(--border); border-radius: 12px;
-    padding: 48px 24px; text-align: center; cursor: pointer;
-    transition: border-color .2s, background .2s;
-    background: var(--surface);
-  }
-  #drop-zone:hover, #drop-zone.drag-over {
-    border-color: var(--accent); background: rgba(124,106,247,.07);
-  }
-  #drop-zone svg { opacity: .4; margin-bottom: 12px; }
-  #drop-zone p { color: var(--muted); font-size: .9rem; }
-  #drop-zone strong { color: var(--text); }
-  #file-input { display: none; }
-  #file-info {
-    display: none; margin-top: 14px; padding: 10px 16px;
-    background: var(--bg); border-radius: var(--radius);
-    font-size: .85rem; color: var(--accent2);
-    border: 1px solid var(--border);
-  }
-  #inline-error { color: var(--error); font-size: .85rem; margin-top: 8px; display: none; }
-
-  /* Controls */
-  .controls { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-
-  /* Warnings */
-  .warn-banner {
-    background: rgba(251,191,36,.1); border: 1px solid var(--warn);
-    border-radius: var(--radius); padding: 10px 14px;
-    font-size: .85rem; color: var(--warn); margin-top: 14px;
-    display: none;
-  }
-
-  /* Spinner */
-  .spinner-wrap { display: none; align-items: center; gap: 12px; margin-top: 20px; color: var(--muted); font-size: .9rem; }
-  .spinner {
-    width: 22px; height: 22px; border: 3px solid var(--border);
-    border-top-color: var(--accent); border-radius: 50%;
-    animation: spin .7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* Output */
-  #output-section { display: none; margin-top: 28px; }
-  .output-header {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 12px; flex-wrap: wrap; gap: 10px;
-  }
-  #invoice-count { font-size: .95rem; font-weight: 600; color: var(--accent2); }
-  .output-actions { display: flex; gap: 8px; }
-  #json-output {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 18px;
-    font-size: .8rem; line-height: 1.6; max-height: 520px;
-    overflow: auto; white-space: pre-wrap; word-break: break-all;
-  }
-  /* Syntax highlight classes */
-  .jk { color: #93c5fd; }   /* key */
-  .js { color: #86efac; }   /* string value */
-  .jn { color: #fca5a5; }   /* null */
-  .ji { color: #fbbf24; }   /* number */
-  .jb { color: #c084fc; }   /* boolean */
-
-  /* Test harness */
-  #test-section { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 24px; display: none; }
-  #test-section h2 { font-size: 1rem; margin-bottom: 14px; }
-  #test-results { margin-top: 14px; display: flex; flex-direction: column; gap: 12px; }
-  .test-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 14px 16px;
-  }
-  .test-card-header {
-    display: flex; justify-content: space-between; align-items: center;
-    cursor: pointer;
-  }
-  .test-card-name { font-size: .9rem; font-weight: 600; }
-  .badge {
-    font-size: .75rem; font-weight: 700; padding: 3px 10px;
-    border-radius: 99px; letter-spacing: .04em;
-  }
-  .badge-pass { background: rgba(52,211,153,.15); color: var(--pass); }
-  .badge-fail { background: rgba(248,113,113,.15); color: var(--fail); }
-  .badge-running { background: rgba(124,106,247,.15); color: var(--accent); }
-  .diff-table { margin-top: 12px; width: 100%; border-collapse: collapse; font-size: .78rem; display: none; }
-  .diff-table th { text-align: left; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--border); }
-  .diff-table td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
-  .diff-table tr.diff-row td { background: rgba(248,113,113,.07); }
-  .diff-table code { font-family: monospace; }
+:root {
+  --bg:#09090f; --surface:#111119; --card:#16161f; --border:#1e1e2e; --border2:#2a2a3e;
+  --accent:#6ee7b7; --accent2:#38bdf8; --warn:#fb923c; --danger:#f87171;
+  --muted:#4a4a6a; --text:#e2e2f0; --text2:#9999bb;
+  --mono:'JetBrains Mono',monospace; --sans:'Syne',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(110,231,183,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(110,231,183,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+header{position:relative;z-index:10;padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:rgba(9,9,15,.92);backdrop-filter:blur(12px)}
+.logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:#000;flex-shrink:0}
+.brand h1{font-size:14px;font-weight:700;letter-spacing:-.02em}
+.brand p{font-size:10px;color:var(--text2);font-family:var(--mono)}
+.cfg{margin-left:auto;display:flex;align-items:center;gap:8px}
+.cfg label{font-size:10px;color:var(--text2);font-family:var(--mono)}
+.cfg input{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:5px 9px;font-family:var(--mono);font-size:11px;color:var(--text);outline:none;transition:border-color .15s}
+.cfg input:focus{border-color:var(--accent)}
+.cfg .ep{width:220px} .cfg .md{width:130px}
+.main{position:relative;z-index:1;display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 59px)}
+/* LEFT */
+.left{border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface)}
+.setup{padding:12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.setup-title{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);font-family:var(--mono)}
+.folder-row{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:8px;border:1.5px dashed var(--border2);cursor:pointer;transition:all .15s;position:relative}
+.folder-row:hover{border-color:var(--accent);background:rgba(110,231,183,.03)}
+.folder-row.loaded{border-style:solid}
+.folder-row.pdf-row.loaded{border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.04)}
+.folder-row.exp-row.loaded{border-color:rgba(110,231,183,.35);background:rgba(110,231,183,.04)}
+.folder-row input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.fr-icon{font-size:16px;flex-shrink:0}
+.fr-info{flex:1;min-width:0}
+.fr-label{font-size:11px;font-weight:700}
+.fr-meta{font-size:9px;color:var(--text2);font-family:var(--mono);margin-top:1px}
+.fr-badge{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:4px;flex-shrink:0;font-weight:600}
+.fr-badge.blue{background:rgba(56,189,248,.15);color:var(--accent2)}
+.fr-badge.green{background:rgba(110,231,183,.15);color:var(--accent)}
+.hint{font-size:9px;color:var(--muted);font-family:var(--mono);text-align:center;padding:0 4px}
+.list-hdr{padding:8px 12px 6px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);font-family:var(--mono);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.file-queue{flex:1;overflow-y:auto;padding:6px 8px}
+.file-queue::-webkit-scrollbar{width:4px}
+.file-queue::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.file-item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;border:1px solid var(--border);margin-bottom:4px;cursor:pointer;transition:all .12s;position:relative;overflow:hidden}
+.file-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--muted)}
+.file-item:hover{border-color:var(--border2);background:rgba(255,255,255,.015)}
+.file-item.active{border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.04)}
+.file-item.active::before{background:var(--accent2)}
+.file-item.st-pass::before{background:var(--accent)}
+.file-item.st-fail::before{background:var(--danger)}
+.file-item.st-error::before{background:var(--warn)}
+.file-item.st-parsing::before{background:var(--accent2);animation:pulse .8s ease-in-out infinite alternate}
+@keyframes pulse{to{opacity:.25}}
+.fi-icon{font-size:13px;flex-shrink:0}
+.fi-body{flex:1;min-width:0}
+.fi-name{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fi-meta{font-size:9px;color:var(--text2);font-family:var(--mono);margin-top:1px}
+.fi-tags{display:flex;gap:3px;flex-shrink:0;align-items:center}
+.tag{font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:3px;font-weight:600}
+.tag.pass{background:rgba(110,231,183,.12);color:var(--accent)}
+.tag.fail{background:rgba(248,113,113,.12);color:var(--danger)}
+.tag.error{background:rgba(251,146,60,.12);color:var(--warn)}
+.tag.parsing{background:rgba(56,189,248,.12);color:var(--accent2)}
+.tag.exp{background:rgba(110,231,183,.07);color:var(--accent);border:1px solid rgba(110,231,183,.2)}
+.actions{padding:8px;border-top:1px solid var(--border);display:flex;gap:6px}
+.btn{flex:1;padding:8px;border-radius:7px;border:none;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:700;transition:all .15s}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000}
+.btn-primary:hover{opacity:.85;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2);flex:0;padding:8px 11px}
+.btn-ghost:hover{border-color:var(--text2);color:var(--text)}
+.pp-bar{padding:7px 10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.toggle-wrap{position:relative;display:inline-block;width:32px;height:17px;flex-shrink:0;cursor:pointer}
+.toggle-wrap input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--border2);border-radius:17px;transition:.2s}
+.toggle-label{font-size:10px;font-family:var(--mono);color:var(--text2)}
+.toggle-state{font-size:9px;font-family:var(--mono);margin-left:auto}
+/* RIGHT */
+.right{display:flex;flex-direction:column;overflow:hidden}
+.toolbar{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--surface);flex-shrink:0}
+.tb-title{font-size:12px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-title span{color:var(--text2);font-weight:400;font-family:var(--mono);font-size:10px}
+.tabs{display:flex;gap:3px}
+.tab{padding:4px 10px;border-radius:5px;cursor:pointer;font-size:10px;font-weight:700;letter-spacing:.04em;font-family:var(--mono);background:transparent;border:1px solid transparent;color:var(--text2);transition:all .12s}
+.tab:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.tab.active{background:var(--card);border-color:var(--border2);color:var(--text)}
+.icon-btn{width:26px;height:26px;border-radius:5px;border:1px solid var(--border2);background:transparent;cursor:pointer;color:var(--text2);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.icon-btn:hover{color:var(--text);border-color:var(--text2)}
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted)}
+.es-icon{font-size:40px;opacity:.4}
+.empty-state h2{font-size:14px;font-weight:700;color:var(--text2)}
+.empty-state p{font-size:11px;font-family:var(--mono);text-align:center;line-height:1.7}
+.stats-bar{display:flex;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.stat{flex:1;padding:8px 10px;border-right:1px solid var(--border);text-align:center}
+.stat:last-child{border-right:none}
+.stat-val{font-size:16px;font-weight:800;font-family:var(--mono)}
+.stat-lbl{font-size:8px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;font-family:var(--mono);margin-top:1px}
+.green{color:var(--accent)} .red{color:var(--danger)} .blue{color:var(--accent2)} .gray{color:var(--muted)}
+.inv-nav{display:flex;gap:3px;padding:5px 12px;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto;flex-shrink:0}
+.inv-nav::-webkit-scrollbar{height:3px}
+.inv-nav::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.inv-tab{padding:3px 9px;border-radius:4px;cursor:pointer;white-space:nowrap;font-size:10px;font-family:var(--mono);font-weight:500;background:transparent;border:1px solid transparent;color:var(--text2);transition:all .1s}
+.inv-tab:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.inv-tab.active{background:var(--card);border-color:var(--border2);color:var(--text)}
+.inv-tab.has-diff{border-color:rgba(248,113,113,.3);color:var(--danger)}
+.inv-tab.all-good{border-color:rgba(110,231,183,.25);color:var(--accent)}
+.json-viewer{flex:1;overflow:auto;padding:12px 16px;font-family:var(--mono);font-size:11.5px;line-height:1.65}
+.json-viewer::-webkit-scrollbar{width:5px;height:5px}
+.json-viewer::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.json-viewer pre{white-space:pre-wrap;word-break:break-all}
+.j-key{color:#7dd3fc} .j-str{color:#86efac} .j-num{color:#fde68a} .j-bool{color:#f9a8d4} .j-null{color:var(--muted);font-style:italic} .j-brace{color:var(--text2)}
+/* Compare table */
+.cmp-wrap{flex:1;overflow:auto}
+.cmp-wrap::-webkit-scrollbar{width:5px;height:5px}
+.cmp-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.cmp-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+.cmp-table tr{border-bottom:1px solid rgba(255,255,255,.04)}
+.cmp-table tr:hover{background:rgba(255,255,255,.02)}
+.cmp-field{padding:4px 8px 4px 12px;color:var(--text2);white-space:nowrap;vertical-align:top;font-size:10px;border-right:1px solid var(--border);user-select:none;width:175px}
+.cmp-result{padding:4px 8px;vertical-align:top;border-right:1px solid var(--border);word-break:break-all;min-width:0}
+.cmp-expected{padding:4px 8px;vertical-align:top;word-break:break-all;min-width:0}
+.cmp-table tr.row-section td{background:var(--surface);padding:5px 12px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border2)}
+.cmp-table tr.row-miss .cmp-result{background:rgba(248,113,113,.22)}
+.cmp-table tr.row-miss .cmp-expected{background:rgba(110,231,183,.18)}
+.cmp-table tr.row-miss .cmp-field{color:var(--danger);background:rgba(248,113,113,.1)}
+.cmp-table tr.row-mismatch .cmp-result{background:rgba(251,146,60,.2)}
+.cmp-table tr.row-mismatch .cmp-expected{background:rgba(110,231,183,.18)}
+.cmp-table tr.row-mismatch .cmp-field{color:var(--warn);background:rgba(251,146,60,.08)}
+.cmp-table tr.row-improve .cmp-result{background:rgba(110,231,183,.15)}
+.cmp-table tr.row-improve .cmp-expected{background:rgba(110,231,183,.07)}
+.cmp-table tr.row-improve .cmp-field{color:var(--accent);background:rgba(110,231,183,.07)}
+.cmp-val-null{color:var(--muted);font-style:italic}
+.cmp-val-str{color:#86efac} .cmp-val-num{color:#fde68a} .cmp-val-bool{color:#f9a8d4}
+.cmp-arr-badge{font-size:9px;color:var(--muted);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px}
+/* Diff panel */
+.diff-panel{flex:1;overflow-y:auto;padding:12px 16px}
+.diff-panel::-webkit-scrollbar{width:5px}
+.diff-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.diff-banner{margin-bottom:10px;padding:10px 13px;border-radius:8px;border:1px solid;display:flex;align-items:center;gap:10px}
+.diff-banner.pass{border-color:rgba(110,231,183,.3);background:rgba(110,231,183,.06)}
+.diff-banner.fail{border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.06)}
+.diff-banner h3{font-size:13px;font-weight:700}
+.diff-banner p{font-size:10px;color:var(--text2);font-family:var(--mono);margin-top:1px}
+.issue-list{display:flex;flex-direction:column;gap:4px}
+.issue{padding:6px 10px;border-radius:6px;border:1px solid rgba(248,113,113,.2);background:rgba(248,113,113,.04);font-family:var(--mono);font-size:10.5px;line-height:1.5}
+.issue-path{color:var(--text2);font-size:9px;margin-bottom:2px}
+.issue-detail{color:var(--text)}
+.got-val{color:var(--danger)} .exp-val{color:var(--accent)}
+/* Summary */
+.run-summary{flex:1;overflow-y:auto;padding:12px 16px}
+.run-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+.run-table th{text-align:left;padding:5px 10px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);border-bottom:1px solid var(--border)}
+.run-table td{padding:7px 10px;border-bottom:1px solid var(--border)}
+.run-table tr:hover td{background:rgba(255,255,255,.015);cursor:pointer}
+.pill{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600}
+.pill.pass{background:rgba(110,231,183,.12);color:var(--accent)}
+.pill.fail{background:rgba(248,113,113,.12);color:var(--danger)}
+.pill.error{background:rgba(251,146,60,.12);color:var(--warn)}
+.pill.queued,.pill.parsed{background:rgba(255,255,255,.06);color:var(--text2)}
+.pill.parsing{background:rgba(56,189,248,.12);color:var(--accent2)}
+/* Misc */
+.parsing-bar{display:flex;align-items:center;gap:8px;padding:7px 12px;background:rgba(56,189,248,.07);border-bottom:1px solid rgba(56,189,248,.15);font-size:10px;font-family:var(--mono);color:var(--accent2);flex-shrink:0}
+.spinner{width:11px;height:11px;border:2px solid rgba(56,189,248,.2);border-top-color:var(--accent2);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pp-log-panel{padding:8px 14px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;max-height:160px;overflow-y:auto}
+.pp-log-panel::-webkit-scrollbar{width:4px}
+.pp-log-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.toasts{position:fixed;bottom:16px;right:16px;z-index:1000;display:flex;flex-direction:column;gap:5px}
+.toast{padding:7px 12px;border-radius:7px;font-size:11px;font-family:var(--mono);border:1px solid;animation:slide-up .18s ease}
+@keyframes slide-up{from{transform:translateY(6px);opacity:0}}
+.toast.ok{background:rgba(110,231,183,.1);border-color:rgba(110,231,183,.3);color:var(--accent)}
+.toast.info{background:rgba(56,189,248,.1);border-color:rgba(56,189,248,.3);color:var(--accent2)}
+.toast.error{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--danger)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 </style>
 </head>
 <body>
-
 <header>
-  <h1>🧾 <span>Invoicer</span></h1>
-  <div class="header-actions">
-    <button class="btn-ghost btn-sm" id="settings-toggle">⚙️ Settings</button>
-    <button class="btn-ghost btn-sm" id="tests-toggle">🧪 Run Tests</button>
+  <div class="logo">II</div>
+  <div class="brand"><h1>Invoice Intelligence</h1><p>PDF → JSON · Extract + Compare</p></div>
+  <div class="cfg">
+    <label>Extract</label><input class="ep" id="extractUrl" value="http://localhost:5001/extract" title="unstructured.io local server">
+    <label>LLM</label><input class="ep" id="apiUrl" value="http://localhost:3030/v1/chat/completions">
+    <label>Model</label><input class="md" id="modelName" value="claude-sonnet-4.6">
+    <label>Save to</label><input class="ep" id="saveDir" value="/Users/aigaurav/Code/invoice-parser/Vendors/Duso/Parsed" placeholder="e.g. /path/to/Parsed" title="Point at ExpectedResults — output saves to sibling Parsed/ folder">
   </div>
 </header>
-
-<main>
-  <!-- Settings panel -->
-  <div id="settings-panel" style="display:none">
-    <h2>Settings</h2>
-    <p style="font-size:.85rem;color:var(--muted)">Using <strong>OpenWire</strong> at <code>localhost:3030</code> via local proxy on <code>localhost:3001</code>. No API key required.</p>
-    <div id="api-key-status" class="ok">✓ OpenWire proxy active</div>
+<div class="main">
+  <!-- LEFT -->
+  <div class="left">
+    <div class="setup">
+      <div class="setup-title">Load Folders</div>
+      <div class="folder-row pdf-row" id="pdfRow">
+        <input type="file" id="pdfInput" accept=".pdf,.PDF" multiple>
+        <div class="fr-icon">📁</div>
+        <div class="fr-info"><div class="fr-label">PDFs Folder</div><div class="fr-meta" id="pdfMeta">Click to select PDF files</div></div>
+        <span class="fr-badge blue" id="pdfBadge" style="display:none"></span>
+      </div>
+      <div class="folder-row exp-row" id="expRow">
+        <input type="file" id="expInput" accept=".json" multiple>
+        <div class="fr-icon">🎯</div>
+        <div class="fr-info"><div class="fr-label">ExpectedResults Folder</div><div class="fr-meta" id="expMeta">Click to select expected JSON files</div></div>
+        <span class="fr-badge green" id="expBadge" style="display:none"></span>
+      </div>
+      <div class="hint">Matched by filename stem: invoice.pdf ↔ invoice.json</div>
+    </div>
+    <div class="list-hdr">
+      <span>Queue &nbsp;<span id="qCount" style="color:var(--muted);font-weight:400">0</span></span>
+      <span id="matchInfo" style="color:var(--accent);font-size:9px"></span>
+    </div>
+    <div class="file-queue" id="fileQueue" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+      <p style="text-align:center;color:var(--muted);font-size:10px;font-family:var(--mono);padding:20px 8px;line-height:1.7">Load folders above<br>or drag &amp; drop files here</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="parseBtn" disabled onclick="parseAll()">▶ Parse All</button>
+      <button class="btn btn-ghost" onclick="showSummary()" title="Summary">≡</button>
+      <button class="btn btn-ghost" onclick="clearAll()" title="Clear">✕</button>
+    </div>
+    <div class="pp-bar">
+      <label class="toggle-wrap">
+        <input type="checkbox" id="ppToggle" checked>
+        <span id="ppSlider" class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label">Post-processing (LLM second pass)</span>
+      <span class="toggle-state" id="ppState" style="color:var(--accent)">ON</span>
+    </div>
   </div>
-
-  <!-- Drop zone -->
-  <div id="drop-zone">
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="12" y1="18" x2="12" y2="12"/>
-      <line x1="9" y1="15" x2="15" y2="15"/>
-    </svg>
-    <p><strong>Drop a PDF here</strong> or <strong id="browse-link" style="color:var(--accent);cursor:pointer">browse</strong></p>
-    <p style="margin-top:6px">PDF files only</p>
-    <div id="file-info"></div>
-    <div id="inline-error"></div>
-  </div>
-  <input type="file" id="file-input" accept=".pdf"/>
-
-  <div class="warn-banner" id="warn-banner"></div>
-
-  <div class="controls">
-    <button class="btn-primary" id="parse-btn" disabled>Parse Invoices</button>
-  </div>
-
-  <div class="spinner-wrap" id="spinner">
-    <div class="spinner"></div>
-    <span>Extracting text &amp; calling Claude…</span>
-  </div>
-
-  <!-- Output -->
-  <div id="output-section">
-    <div class="output-header">
-      <span id="invoice-count"></span>
-      <div class="output-actions">
-        <button class="btn-secondary btn-sm" id="copy-btn">📋 Copy</button>
-        <button class="btn-secondary btn-sm" id="download-btn">⬇️ Download JSON</button>
-        <button class="btn-secondary btn-sm" id="save-expected-btn" title="Save this result as the expected output for testing">💾 Save as Expected</button>
+  <!-- RIGHT -->
+  <div class="right">
+    <div class="toolbar">
+      <div class="tb-title" id="tbTitle"><span>Load folders and click Parse All</span></div>
+      <div class="tabs" id="tabBar" style="display:none">
+        <button class="tab active" data-tab="json"    onclick="setTab('json')">JSON</button>
+        <button class="tab"        data-tab="compare" onclick="setTab('compare')">Compare</button>
+        <button class="tab"        data-tab="diff"    onclick="setTab('diff')">Diff</button>
+        <button class="tab"        data-tab="raw"     onclick="setTab('raw')" id="rawTab" style="display:none">Raw LLM</button>
+        <button class="tab"        data-tab="pdftext" onclick="setTab('pdftext')">PDF Text</button>
+      </div>
+      <div style="display:flex;gap:5px">
+        <button class="icon-btn" title="Copy JSON" onclick="copyJSON()">⎘</button>
+        <button class="icon-btn" title="Download" onclick="downloadJSON()">↓</button>
       </div>
     </div>
-    <pre id="json-output"></pre>
+    <div class="content" id="content">
+      <div class="empty-state"><div class="es-icon">📂</div><h2>Ready</h2>
+        <p>1. Select your Pdfs/ folder<br>2. Select your ExpectedResults/ folder<br>3. Click ▶ Parse All</p>
+      </div>
+    </div>
   </div>
-
-  <!-- Test harness -->
-  <div id="test-section">
-    <h2>🧪 Test Harness</h2>
-    <button class="btn-primary btn-sm" id="run-tests-btn">Run All Tests</button>
-    <div id="test-results"></div>
-  </div>
-</main>
-
+</div>
+<div class="toasts" id="toasts"></div>
 <script>
-// ── Config ──────────────────────────────────────────────────────────────────
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// ── State ──────────────────────────────────────────────────────────────────
+const S = { files:[], pending:{}, activeId:null, activeTab:'json', activeInv:0, showPdf:true };
 
-const PROXY_URL  = '/api/claude';
-const MODEL      = 'claude-sonnet-4-5';
-const SCHEMA_STR = JSON.stringify([{
-  invoiceModel: {
-    header: {
-      invoiceNumber: "string", invoiceDate: "YYYYMMDD",
-      orderNumber: null, orderDate: null, salesperson: null, customerNumber: null,
-      customerPurchaseOrder: "string", vendorAddress: null,
-      billToAddress: { name:"", address1:"", address2:null, addressOther:null, city:"", state:"", zip:"", phone:null, fax:null },
-      shipToAddress: { name:"", address1:"", address2:null, addressOther:null, city:"", state:"", zip:"", phone:null, fax:null },
-      vendorName: null, shipMethod: null, terms: "string"
-    },
-    details: {
-      invoiceLineItems: [{
-        lineNumber:1, itemName:"string", itemId:"string", unit:null, catchWeight:null,
-        qtyOrdered:"string", qtyShipped:"string", qtyBackOrdered:null,
-        price:"string", extendedPrice:"string", addons:[]
-      }]
-    },
-    footer: {
-      subtotal:"string", total:"string",
-      addons:[
-        {addonsubType:null, addonsubTypeId:6, amount:"string"},
-        {addonsubType:null, addonsubTypeId:2, amount:"string"},
-        {addonsubType:null, addonsubTypeId:3, amount:"string"}
-      ]
-    }
-  },
-  pdfContent: null, invoiceStatus: 1, resultMessage: null, pageRanges: [1,2,3]
-}], null, 2);
-
-const SYSTEM_PROMPT = `You are an invoice parser. Extract all invoices from PDF text and return a JSON array.
-
-Rules:
-- Each distinct invoice number = one array element
-- invoiceDate: format as YYYYMMDD regardless of input format
-- customerPurchaseOrder: strip any leading "PO #-", "PO#-", or "PO # -" prefix
-- Credit memos: include in array, set resultMessage to "Credit memo", quantities/prices may be negative
-- lineItems: number from 1, skip header rows/subtotals/blank rows
-- Always include all 3 footer addons (addonsubTypeId 6, 2, 3) — use "0.00" if not found
-- pageRanges: list which 1-indexed pages belong to each invoice
-- Strip $ and , from all monetary strings
-- Return ONLY a valid JSON array. No markdown, no prose, no code fences.
-
-Target schema:
-${SCHEMA_STR}`;
-
-// ── State ───────────────────────────────────────────────────────────────────
-let currentFile = null;
-let lastResult  = null;
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
-
-function syntaxHighlight(json) {
-  return json
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
-      if (/^"/.test(m)) {
-        if (/:$/.test(m)) return `<span class="jk">${m}</span>`;
-        return `<span class="js">${m}</span>`;
-      }
-      if (/null/.test(m)) return `<span class="jn">${m}</span>`;
-      if (/true|false/.test(m)) return `<span class="jb">${m}</span>`;
-      return `<span class="ji">${m}</span>`;
-    });
-}
-
-function showError(msg) {
-  const el = $('inline-error');
-  el.textContent = msg; el.style.display = 'block';
-}
-function clearError() { $('inline-error').style.display = 'none'; }
-
-// ── Settings UI ───────────────────────────────────────────────────────────────
-$('settings-toggle').addEventListener('click', () => {
-  const p = $('settings-panel');
-  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+// ── Inputs ─────────────────────────────────────────────────────────────────
+document.getElementById('pdfInput').addEventListener('change', e => {
+  const fs = [...e.target.files].filter(f => f.name.match(/\.pdf$/i));
+  e.target.value = '';  // reset so same files can be re-selected
+  if (!fs.length) return;
+  addPDFs(fs);
+  document.getElementById('pdfMeta').textContent = `${fs.length} PDF(s) selected`;
+  document.getElementById('pdfBadge').textContent = fs.length;
+  document.getElementById('pdfBadge').style.display = '';
+  document.getElementById('pdfRow').classList.add('loaded');
 });
-
-// ── File handling ─────────────────────────────────────────────────────────────
-const dropZone  = $('drop-zone');
-const fileInput = $('file-input');
-
-$('browse-link').addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
-dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
-
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault(); dropZone.classList.remove('drag-over');
-  handleFile(e.dataTransfer.files[0]);
-});
-
-async function handleFile(file) {
-  clearError();
-  if (!file) return;
-  if (!file.name.toLowerCase().endsWith('.pdf')) {
-    showError('Only .pdf files are accepted.'); return;
-  }
-  currentFile = file;
-  // Get page count
-  try {
-    const buf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-    const pc  = pdf.numPages;
-    const fi  = $('file-info');
-    fi.textContent = `📄 ${file.name}  ·  ${pc} page${pc !== 1 ? 's' : ''}`;
-    fi.style.display = 'block';
-    $('parse-btn').disabled = false;
-  } catch (err) {
-    showError('Could not read PDF: ' + err.message);
-  }
-}
-
-// ── Extract text from PDF ─────────────────────────────────────────────────────
-async function extractText(file) {
-  const buf  = await file.arrayBuffer();
-  const pdf  = await pdfjsLib.getDocument({ data: buf }).promise;
-  const pages = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page    = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    pages.push(content.items.map(s => s.str).join(' '));
-  }
-  return pages.join('\n---PAGE BREAK---\n');
-}
-
-// ── Call Claude via OpenWire proxy (SSE streaming) ────────────────────────────
-async function callClaude(text) {
-  const resp = await fetch(PROXY_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ system: SYSTEM_PROMPT, prompt: text })
+document.getElementById('expInput').addEventListener('change', e => {
+  const fs = [...e.target.files].filter(f => f.name.match(/\.json$/i));
+  e.target.value = '';  // reset so same files can be re-selected
+  if (!fs.length) return;
+  loadExpected(fs).then(n => {
+    document.getElementById('expMeta').textContent = `${n} JSON(s) loaded`;
+    document.getElementById('expBadge').textContent = n;
+    document.getElementById('expBadge').style.display = '';
+    document.getElementById('expRow').classList.add('loaded');
   });
-
-  if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status}`);
-  }
-
-  // Read SSE stream
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-  }
-
-  // Parse last SSE data line
-  const lines = buffer.split('\n');
-  let rawText = '';
-  for (const line of lines) {
-    if (!line.startsWith('data: ')) continue;
-    try {
-      const parsed = JSON.parse(line.slice(6));
-      if (parsed.error) throw new Error(parsed.error);
-      if (parsed.content) rawText = parsed.content;
-    } catch (e) {
-      if (e.message !== 'JSON parse error') throw e;
-    }
-  }
-
-  // Strip markdown code fences if present
-  rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-  try { return JSON.parse(rawText); }
-  catch (e) {
-    const match = rawText.match(/\[[\s\S]*\]/);
-    if (match) {
-      try { return JSON.parse(match[0]); } catch (_) {}
-    }
-    console.error('Raw Claude response:', rawText.slice(0, 500));
-    throw new Error('Response was not valid JSON. Check browser console.\n\nPreview:\n' + rawText.slice(0, 200));
-  }
+});
+function onDragOver(e) { e.preventDefault(); document.getElementById('fileQueue').style.outline = '2px dashed var(--accent)'; }
+function onDragLeave() { document.getElementById('fileQueue').style.outline = ''; }
+function onDrop(e) {
+  e.preventDefault(); document.getElementById('fileQueue').style.outline = '';
+  const all = [...e.dataTransfer.files];
+  addPDFs(all.filter(f => f.name.match(/\.pdf$/i)));
+  loadExpected(all.filter(f => f.name.match(/\.json$/i)));
 }
 
-// ── Parse button ──────────────────────────────────────────────────────────────
-$('parse-btn').addEventListener('click', async () => {
-  if (!currentFile) return;
+// ── File management ────────────────────────────────────────────────────────
+const stemOf = name => name.replace(/\.(pdf|PDF|json)$/, '');
+const uid    = ()   => Math.random().toString(36).slice(2,9);
 
-  $('spinner').style.display    = 'flex';
-  $('output-section').style.display = 'none';
-  $('warn-banner').style.display    = 'none';
-  $('parse-btn').disabled = true;
-  clearError();
-
-  try {
-    const text = await extractText(currentFile);
-
-    if (text.length > 60000) {
-      const wb = $('warn-banner');
-      wb.textContent = `⚠️ Extracted text is ${text.length.toLocaleString()} characters (> 60K). Claude may hit context limits.`;
-      wb.style.display = 'block';
-    }
-
-    const result = await callClaude(text);
-    lastResult   = result;
-    renderOutput(result, currentFile.name);
-  } catch (err) {
-    showError('Error: ' + err.message);
-  } finally {
-    $('spinner').style.display = 'none';
-    $('parse-btn').disabled    = false;
-  }
-});
-
-function renderOutput(result, filename) {
-  const n   = Array.isArray(result) ? result.length : '?';
-  $('invoice-count').textContent = `${n} invoice${n !== 1 ? 's' : ''} parsed`;
-  const pretty = JSON.stringify(result, null, 2);
-  $('json-output').innerHTML = syntaxHighlight(pretty);
-  $('output-section').style.display = 'block';
-
-  // Store filename for download
-  $('download-btn').dataset.filename = filename.replace(/\.pdf$/i, '') + '.json';
+function addPDFs(files) {
+  let added = 0;
+  files.forEach(f => {
+    const s = stemOf(f.name);
+    if (S.files.find(x => x.stem === s)) return;
+    const entry = { id:uid(), file:f, name:f.name, stem:s, status:'queued', result:null, rawResult:null, expected:null, diff:null, error:null, rawPages:null };
+    if (S.pending[s]) { entry.expected = S.pending[s]; delete S.pending[s]; }
+    S.files.push(entry);
+    added++;
+  });
+  if (added) { renderQueue(); document.getElementById('parseBtn').disabled = false; toast(`Added ${added} PDF(s)`,'info'); }
 }
-
-// ── Copy ──────────────────────────────────────────────────────────────────────
-$('copy-btn').addEventListener('click', async () => {
-  if (!lastResult) return;
-  try {
-    await navigator.clipboard.writeText(JSON.stringify(lastResult, null, 2));
-    const btn = $('copy-btn');
-    btn.textContent = '✅ Copied!';
-    setTimeout(() => btn.textContent = '📋 Copy', 2000);
-  } catch { showError('Clipboard copy failed.'); }
-});
-
-// ── Download ──────────────────────────────────────────────────────────────────
-$('download-btn').addEventListener('click', () => {
-  if (!lastResult) return;
-  const blob     = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
-  const url      = URL.createObjectURL(blob);
-  const a        = document.createElement('a');
-  a.href         = url;
-  a.download     = $('download-btn').dataset.filename || 'invoices.json';
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-// ── Save as Expected ──────────────────────────────────────────────────────────
-$('save-expected-btn').addEventListener('click', async () => {
-  if (!lastResult || !currentFile) return;
-  const btn = $('save-expected-btn');
-  btn.disabled = true; btn.textContent = '⏳ Saving…';
-
-  try {
-    // Save PDF to pdfs/
-    const pdfBase64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(currentFile);
-    });
-    await fetch('/api/save-pdf-base64', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ pdfName: currentFile.name, pdfBase64 })
-    });
-
-    // Save expected JSON + update manifest
-    const resp = await fetch('/api/save-expected', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ pdfName: currentFile.name, result: lastResult })
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error);
-
-    btn.textContent = '✅ Saved!';
-    setTimeout(() => { btn.textContent = '💾 Save as Expected'; btn.disabled = false; }, 2500);
-  } catch (err) {
-    btn.textContent = '❌ Failed';
-    showError('Save failed: ' + err.message);
-    setTimeout(() => { btn.textContent = '💾 Save as Expected'; btn.disabled = false; }, 2500);
-  }
-});
-
-// ── Test Harness ──────────────────────────────────────────────────────────────
-$('tests-toggle').addEventListener('click', () => {
-  const s = $('test-section');
-  s.style.display = s.style.display === 'none' ? 'block' : 'none';
-});
-
-$('run-tests-btn').addEventListener('click', runTests);
-
-async function runTests() {
-  const btn = $('run-tests-btn');
-  btn.disabled = true; btn.textContent = 'Running…';
-  $('test-results').innerHTML = '';
-
-  let manifest;
-  try {
-    const r = await fetch('/manifest.json');
-    manifest = await r.json();
-  } catch (e) {
-    $('test-results').innerHTML = `<div style="color:var(--error)">Could not load manifest.json: ${e.message}</div>`;
-    btn.disabled = false; btn.textContent = 'Run All Tests'; return;
-  }
-
-  const tests = manifest.tests || [];
-  if (!tests.length) {
-    $('test-results').innerHTML = '<div style="color:var(--muted)">No tests defined in manifest.json.</div>';
-    btn.disabled = false; btn.textContent = 'Run All Tests'; return;
-  }
-
-  for (let i = 0; i < tests.length; i++) {
-    const t    = tests[i];
-    const card = document.createElement('div');
-    card.className = 'test-card';
-    card.innerHTML = `
-      <div class="test-card-header">
-        <span class="test-card-name">${t.pdf}</span>
-        <span class="badge badge-running">RUNNING</span>
-      </div>`;
-    $('test-results').appendChild(card);
-
-    try {
-      // Fetch PDF
-      const pdfResp = await fetch('/' + t.pdf);
-      if (!pdfResp.ok) throw new Error(`PDF not found: ${t.pdf}`);
-      const pdfBuf = await pdfResp.arrayBuffer();
-
-      // Extract text
-      const pdf   = await pdfjsLib.getDocument({ data: pdfBuf }).promise;
-      const pages = [];
-      for (let p = 1; p <= pdf.numPages; p++) {
-        const pg  = await pdf.getPage(p);
-        const ct  = await pg.getTextContent();
-        pages.push(ct.items.map(s => s.str).join(' '));
+async function loadExpected(files) {
+  const results = await Promise.all(files.map(f => new Promise(res => {
+    const r = new FileReader();
+    r.onload = e => { try { res({stem:stemOf(f.name), json:JSON.parse(e.target.result)}); } catch { res(null); } };
+    r.readAsText(f);
+  })));
+  let matched = 0;
+  results.filter(Boolean).forEach(({stem, json}) => {
+    // normalise: accept bare array or {invoices:[...]} wrapper, and fix camelCase keys
+    const raw = Array.isArray(json) ? json : (Array.isArray(json?.invoices) ? json.invoices : [json]);
+    const arr = normKeys(raw);
+    const entry = S.files.find(x => x.stem === stem);
+    if (entry) {
+      entry.expected = arr;
+      if (entry.result) {
+        entry.diff = diffAll(entry.result, entry.expected);
+        entry.status = entry.diff.match ? 'pass':'fail';
+        if (S.activeId === entry.id) S.activeTab = 'compare';
       }
-      const text = pages.join('\n---PAGE BREAK---\n');
+      matched++;
+    } else { S.pending[stem] = arr; }
+  });
+  renderQueue();
+  if (S.activeId) renderContent();
+  toast(`Loaded ${results.filter(Boolean).length} expected, ${matched} matched`, matched?'ok':'info');
+  return results.filter(Boolean).length;
+}
+function clearAll() {
+  S.files=[]; S.pending={}; S.activeId=null;
+  document.getElementById('parseBtn').disabled = true;
+  renderQueue(); renderContent();
+}
 
-      // Call Claude
-      const actual = await callClaude(text);
+// ── Queue render ───────────────────────────────────────────────────────────
+function renderQueue() {
+  const q = document.getElementById('fileQueue');
+  const total = S.files.length, withExp = S.files.filter(x=>x.expected).length;
+  document.getElementById('qCount').textContent = total;
+  document.getElementById('matchInfo').textContent = withExp ? `${withExp}/${total} matched` : '';
+  if (!total) { q.innerHTML = '<p style="text-align:center;color:var(--muted);font-size:10px;font-family:var(--mono);padding:20px 8px;line-height:1.7">Load folders above<br>or drag &amp; drop files here</p>'; return; }
+  const lbls = {queued:'—',parsing:'…',parsed:'ok',pass:'PASS',fail:'FAIL',error:'ERR'};
+  const clss = {pass:'pass',fail:'fail',error:'error',parsing:'parsing'};
+  q.innerHTML = S.files.map(e => {
+    const st = clss[e.status]||''; const lbl = lbls[e.status]||e.status;
+    const expTag  = e.expected ? `<span class="tag exp">✓</span>` : '';
+    const statTag = st ? `<span class="tag ${st}">${lbl}</span>` : '';
+    const inv = e.result ? `${e.result.length} inv` : e.status;
+    return `<div class="file-item st-${e.status}${e.id===S.activeId?' active':''}" onclick="selectFile('${e.id}')">
+      <div class="fi-icon">${e.status==='parsing'?'⏳':'📄'}</div>
+      <div class="fi-body"><div class="fi-name" title="${e.name}">${e.name}</div>
+      <div class="fi-meta">${(e.file.size/1024).toFixed(0)} KB · ${inv}</div></div>
+      <div class="fi-tags">${expTag}${statTag}</div></div>`;
+  }).join('');
+}
+function selectFile(id) { S.activeId=id; S.activeInv=0; renderQueue(); renderContent(); }
 
-      // Fetch expected
-      const expResp = await fetch('/' + t.expected);
-      if (!expResp.ok) throw new Error(`Expected file not found: ${t.expected}`);
-      const expected = await expResp.json();
+// ── Parse ──────────────────────────────────────────────────────────────────
+async function parseAll() {
+  const queued = S.files.filter(x => x.status==='queued');
+  if (!queued.length) { toast('Nothing to parse','info'); return; }
+  document.getElementById('parseBtn').disabled = true;
+  if (!S.activeId) S.activeId = queued[0].id;
 
-      // Diff
-      const diffs = deepDiff(expected, actual);
-      const badge = card.querySelector('.badge');
-      if (diffs.length === 0) {
-        badge.textContent = 'PASS'; badge.className = 'badge badge-pass';
-      } else {
-        badge.textContent = 'FAIL'; badge.className = 'badge badge-fail';
-        const table = buildDiffTable(diffs);
-        card.appendChild(table);
-        table.style.display = 'table';
+  for (const e of queued) {
+    e.status = 'parsing'; renderQueue();
+    if (S.activeId===e.id) renderContent();
+    try {
+      const parseUrl  = document.getElementById('extractUrl').value.trim().replace(/\/extract$/, '') + '/parse';
+      const ppOn      = document.getElementById('ppToggle').checked;
+      const model     = document.getElementById('modelName').value.trim();
+      const llmUrl    = document.getElementById('apiUrl').value.trim();
+
+      const form = new FormData();
+      form.append('file', e.file);
+      form.append('post_process', ppOn ? 'true' : 'false');
+      form.append('llm_endpoint', llmUrl);
+      form.append('llm_model',    model);
+      const saveDir = document.getElementById('saveDir').value.trim();
+      if (saveDir) form.append('save_dir', saveDir);
+
+      let res;
+      try {
+        res = await fetch(parseUrl, { method: 'POST', body: form });
+      } catch(err) {
+        throw new Error(`Cannot reach server at ${parseUrl}\nStart it with: python server.py\n\n${err.message}`);
       }
-    } catch (err) {
-      const badge = card.querySelector('.badge');
-      badge.textContent = 'ERROR'; badge.className = 'badge badge-fail';
-      const msg = document.createElement('div');
-      msg.style.cssText = 'color:var(--error);font-size:.8rem;margin-top:8px';
-      msg.textContent = err.message;
-      card.appendChild(msg);
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Server error ${res.status}:\n${body.slice(0, 300)}`);
+      }
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      e.result    = data.invoices;
+      e.ppApplied = data.post_processed;
+      e.rawPages  = null; // raw pages not returned from /parse
+
+      if (e.expected) {
+        e.diff = diffAll(e.result, e.expected);
+        e.status = e.diff.match ? 'pass' : 'fail';
+        if (S.activeId === e.id) S.activeTab = 'compare';
+      }
+      else e.status = 'parsed';
+      const savedNote = data.saved_to ? ' · saved' : '';
+      toast(`✓ ${e.name} — ${e.result.length} invoice(s)${savedNote}`, 'ok');
+    } catch(err) {
+      e.status='error'; e.error=err.message;
+      toast(`✗ ${e.name}: ${err.message.slice(0,80)}`, 'error');
+    }
+    renderQueue();
+    if (S.activeId===e.id) renderContent();
+  }
+  document.getElementById('parseBtn').disabled = false;
+}
+
+// ── camelCase → PascalCase normalizer for expected JSONs ──────────────────
+// Expected files may use camelCase keys (legacy). Remap to PascalCase so
+// InvoiceRecord.fromDict works on both result (PascalCase) and expected.
+const CAMEL_TO_PASCAL = {
+  invoiceModel:'InvoiceModel', invoiceStatus:'invoiceStatus', pdfContent:'pdfContent',
+  resultMessage:'resultMessage', pageRanges:'pageRanges',
+  header:'Header', details:'Details', footer:'Footer',
+  invoiceNumber:'InvoiceNumber', invoiceDate:'InvoiceDate',
+  orderNumber:'OrderNumber', orderDate:'OrderDate',
+  salesperson:'Salesperson', customerNumber:'CustomerNumber',
+  customerPurchaseOrder:'CustomerPurchaseOrder',
+  vendorAddress:'VendorAddress', billToAddress:'BillToAddress', shipToAddress:'ShipToAddress',
+  vendorName:'VendorName', shipMethod:'ShipMethod', terms:'Terms',
+  name:'Name', address1:'Address1', address2:'Address2',
+  addressOther:'AddressOther', city:'City', state:'State', zip:'Zip',
+  phone:'Phone', fax:'Fax',
+  invoiceLineItems:'InvoiceLineItems',
+  lineNumber:'LineNumber', itemName:'ItemName', itemId:'ItemId',
+  unit:'Unit', catchWeight:'CatchWeight', qtyOrdered:'QtyOrdered',
+  qtyShipped:'QtyShipped', qtyBackOrdered:'QtyBackOrdered',
+  price:'Price', extendedPrice:'ExtendedPrice', addons:'Addons',
+  subtotal:'Subtotal', total:'Total',
+};
+function normKeys(obj) {
+  if (Array.isArray(obj)) return obj.map(normKeys);
+  if (obj && typeof obj === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const pk = CAMEL_TO_PASCAL[k] || k;
+      out[pk] = normKeys(v);
+    }
+    return out;
+  }
+  return obj;
+}
+// All fromDict() methods normalize on intake: null/undefined → '', collapse whitespace.
+// Comparison is then just plain string equality on normalized values.
+
+function norm(v) {
+  if (v == null) return '';
+  return String(v).replace(/\s+/g, ' ').trim();
+}
+
+class Address {
+  constructor(d = {}) {
+    this.Name         = norm(d.Name);
+    this.Address1     = norm(d.Address1);
+    this.Address2     = norm(d.Address2);
+    this.AddressOther = norm(d.AddressOther);
+    this.City         = norm(d.City);
+    this.State        = norm(d.State);
+    this.Zip          = norm(d.Zip);
+    this.Phone        = norm(d.Phone);
+    this.Fax          = norm(d.Fax);
+  }
+  static fromDict(d) { return new Address(d || {}); }
+}
+
+class InvoiceLineItem {
+  constructor(d = {}) {
+    this.LineNumber     = norm(d.LineNumber);
+    this.ItemName       = norm(d.ItemName);
+    this.ItemId         = norm(d.ItemId);
+    this.Unit           = norm(d.Unit);
+    this.CatchWeight    = norm(d.CatchWeight);
+    this.QtyOrdered     = norm(d.QtyOrdered);
+    this.QtyShipped     = norm(d.QtyShipped);
+    this.QtyBackOrdered = norm(d.QtyBackOrdered);
+    this.Price          = norm(d.Price);
+    this.ExtendedPrice  = norm(d.ExtendedPrice);
+    this.Addons         = Array.isArray(d.Addons) ? d.Addons : [];
+  }
+  static fromDict(d) { return new InvoiceLineItem(d || {}); }
+}
+
+class InvoiceDetails {
+  constructor(d = {}) {
+    this.InvoiceLineItems = (d.InvoiceLineItems || []).map(i => InvoiceLineItem.fromDict(i));
+  }
+  static fromDict(d) { return new InvoiceDetails(d || {}); }
+}
+
+class InvoiceFooter {
+  constructor(d = {}) {
+    this.Subtotal = norm(d.Subtotal);
+    this.Total    = norm(d.Total);
+    this.Addons   = Array.isArray(d.Addons) ? d.Addons : [];
+  }
+  static fromDict(d) { return new InvoiceFooter(d || {}); }
+}
+
+class InvoiceHeader {
+  constructor(d = {}) {
+    this.InvoiceNumber         = norm(d.InvoiceNumber);
+    this.InvoiceDate           = norm(d.InvoiceDate);
+    this.OrderNumber           = norm(d.OrderNumber);
+    this.OrderDate             = norm(d.OrderDate);
+    this.Salesperson           = norm(d.Salesperson);
+    this.CustomerNumber        = norm(d.CustomerNumber);
+    this.CustomerPurchaseOrder = norm(d.CustomerPurchaseOrder);
+    this.VendorAddress         = Address.fromDict(d.VendorAddress);
+    this.BillToAddress         = Address.fromDict(d.BillToAddress);
+    this.ShipToAddress         = Address.fromDict(d.ShipToAddress);
+    this.VendorName            = norm(d.VendorName);
+    this.ShipMethod            = norm(d.ShipMethod);
+    this.Terms                 = norm(d.Terms);
+  }
+  static fromDict(d) { return new InvoiceHeader(d || {}); }
+}
+
+class InvoiceModel {
+  constructor(d = {}) {
+    this.Header  = InvoiceHeader.fromDict(d.Header);
+    this.Details = InvoiceDetails.fromDict(d.Details);
+    this.Footer  = InvoiceFooter.fromDict(d.Footer);
+  }
+  static fromDict(d) { return new InvoiceModel(d || {}); }
+}
+
+class InvoiceRecord {
+  constructor(d = {}) {
+    this.InvoiceModel  = InvoiceModel.fromDict(d.InvoiceModel);
+    this.pdfContent    = d.pdfContent    || '';
+    this.invoiceStatus = d.invoiceStatus || '1';
+    this.resultMessage = d.resultMessage || '';
+    this.pageRanges    = Array.isArray(d.pageRanges) ? d.pageRanges : [];
+    // convenience aliases used by diff/compare
+    this.Header    = this.InvoiceModel.Header;
+    this.Footer    = this.InvoiceModel.Footer;
+    this.LineItems = this.InvoiceModel.Details.InvoiceLineItems;
+    // index by ItemId for fast lookup
+    this._byId = {};
+    this.LineItems.forEach(li => { if (li.ItemId) this._byId[li.ItemId] = li; });
+  }
+  static fromDict(d) { return new InvoiceRecord(d || {}); }
+}
+
+// ── Diff ───────────────────────────────────────────────────────────────────
+// Fields where an empty expected value means "not verified" — don't flag as miss
+const OPTIONAL_IF_EMPTY = new Set([
+  'LineNumber','Unit','CatchWeight','ShipMethod','Salesperson',
+  'OrderNumber','OrderDate','VendorName','Phone','Fax','AddressOther','Address2'
+]);
+
+function diffObjects(r, e, path, issues, improvements) {
+  for (const key of Object.keys(e)) {
+    const rVal = r[key], eVal = e[key];
+    const fPath = path ? `${path}.${key}` : key;
+
+    if (eVal instanceof Address || eVal instanceof InvoiceHeader || eVal instanceof InvoiceFooter) {
+      diffObjects(rVal || new Address(), eVal, fPath, issues, improvements);
+      continue;
     }
 
-    // Rate limit: 1s delay between tests
-    if (i < tests.length - 1) await sleep(1000);
-  }
+    const rStr = norm(typeof rVal === 'object' ? JSON.stringify(rVal) : rVal);
+    const eStr = norm(typeof eVal === 'object' ? JSON.stringify(eVal) : eVal);
+    const rEmpty = rStr === '', eEmpty = eStr === '';
 
-  btn.disabled = false; btn.textContent = 'Run All Tests';
+    if (eEmpty && !rEmpty)  { improvements.push({path:fPath, type:'improvement', got:rVal, exp:eVal}); }
+    else if (!eEmpty && rEmpty) { if (!OPTIONAL_IF_EMPTY.has(key)) issues.push({path:fPath, type:'miss', got:rVal, exp:eVal}); }
+    else if (!eEmpty && rStr !== eStr) { issues.push({path:fPath, type:'mismatch', got:rVal, exp:eVal}); }
+  }
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function diffInvoice(rInv, eInv, prefix) {
+  const issues = [], improvements = [];
 
-function deepDiff(expected, actual, path = '') {
-  const diffs = [];
-  if (typeof expected !== typeof actual) {
-    diffs.push({ path, expected, actual }); return diffs;
+  // Header
+  diffObjects(rInv.Header, eInv.Header, `${prefix}.Header`, issues, improvements);
+
+  // Footer
+  diffObjects(rInv.Footer, eInv.Footer, `${prefix}.Footer`, issues, improvements);
+
+  // Line items — match by ItemId
+  const allIds = [...new Set([
+    ...Object.keys(rInv._byId),
+    ...Object.keys(eInv._byId)
+  ])];
+  for (const id of allIds) {
+    const rLi = rInv._byId[id], eLi = eInv._byId[id];
+    const p = `${prefix}.LineItems[${id}]`;
+    if (!eLi) { improvements.push({path:p, type:'improvement', got:'(extra)', exp:null}); continue; }
+    if (!rLi) { issues.push({path:p, type:'miss', got:null, exp:`ItemId:${id}`}); continue; }
+    diffObjects(rLi, eLi, p, issues, improvements);
   }
-  if (expected === null || typeof expected !== 'object') {
-    if (expected !== actual) diffs.push({ path, expected, actual });
-    return diffs;
+
+  return {issues, improvements};
+}
+
+function diffAll(result, expected) {
+  const issues = [], improvements = [];
+  if (result.length !== expected.length)
+    issues.push({path:'root', type:'mismatch', got:`${result.length} invoices`, exp:`${expected.length} invoices`});
+
+  for (let i = 0; i < result.length; i++) {
+    const rRaw = result[i];
+    const rNum = rRaw?.InvoiceModel?.Header?.InvoiceNumber;
+    // match expected by InvoiceNumber, fall back to same index
+    const eRaw = (rNum && expected.find(x => x?.InvoiceModel?.Header?.InvoiceNumber === rNum))
+                 ?? expected[i];
+    if (!eRaw) continue;
+    const rInv = InvoiceRecord.fromDict(rRaw);
+    const eInv = InvoiceRecord.fromDict(eRaw);
+    const num  = eInv.Header.InvoiceNumber || i;
+    const d    = diffInvoice(rInv, eInv, `[${i}]#${num}`);
+    issues.push(...d.issues); improvements.push(...d.improvements);
   }
-  if (Array.isArray(expected)) {
-    const len = Math.max(expected.length, Array.isArray(actual) ? actual.length : 0);
-    for (let i = 0; i < len; i++) {
-      diffs.push(...deepDiff(expected[i], (actual||[])[i], `${path}[${i}]`));
+  return {match: issues.length === 0, issues, improvements};
+}
+
+// ── Field ordering ─────────────────────────────────────────────────────────
+const FIELD_ORDER = {
+  InvoiceModel:1, pdfContent:2, invoiceStatus:3, resultMessage:4, pageRanges:5,
+  Header:1, Details:2, Footer:3,
+  InvoiceNumber:1, InvoiceDate:2, OrderNumber:3, OrderDate:4, Salesperson:5,
+  CustomerNumber:6, CustomerPurchaseOrder:7, VendorAddress:8,
+  BillToAddress:9, ShipToAddress:10, VendorName:11, ShipMethod:12, Terms:13,
+  // address sub-fields
+  Name:1, Address1:2, Address2:3, AddressOther:4, City:5, State:6, Zip:7, Phone:8, Fax:9,
+  InvoiceLineItems:1,
+  LineNumber:1, ItemName:2, ItemId:3, Unit:4, CatchWeight:5,
+  QtyOrdered:6, QtyShipped:7, QtyBackOrdered:8, Price:9, ExtendedPrice:10, Addons:11,
+  Subtotal:1, Total:2,
+  addonsubType:1, addonsubTypeId:2, amount:3
+};
+function sortJSON(obj) {
+  if (Array.isArray(obj)) return obj.map(sortJSON);
+  if (obj && typeof obj==='object') return Object.fromEntries(
+    Object.entries(obj).sort(([a],[b])=>(FIELD_ORDER[a]||99)-(FIELD_ORDER[b]||99)||a.localeCompare(b)).map(([k,v])=>[k,sortJSON(v)])
+  );
+  return obj;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function setTab(t) {
+  S.activeTab=t;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
+  renderContent();
+}
+function setInv(i) { S.activeInv=i; renderContent(); }
+function togglePdf() { S.showPdf=!S.showPdf; renderContent(); }
+
+function renderContent() {
+  const content=document.getElementById('content'), tbTitle=document.getElementById('tbTitle'), tabBar=document.getElementById('tabBar');
+  if (S.activeId==='__summary__') return;
+  if (!S.activeId) {
+    tbTitle.innerHTML='<span>Load folders and click Parse All</span>'; tabBar.style.display='none';
+    content.innerHTML=`<div class="empty-state"><div class="es-icon">📂</div><h2>Ready</h2><p>1. Select PDFs folder<br>2. Select ExpectedResults folder<br>3. Click ▶ Parse All</p></div>`;
+    return;
+  }
+  const e=S.files.find(x=>x.id===S.activeId); if(!e) return;
+  tbTitle.innerHTML=`${e.name} <span>— ${e.status}</span>`;
+  tabBar.style.display=(e.result||e.rawPages)?'flex':'none';
+  const rawTab=document.getElementById('rawTab');
+  if (rawTab) rawTab.style.display=(e.ppApplied&&e.rawResult)?'':'none';
+
+  if (e.status==='parsing') {
+    content.innerHTML=`<div class="parsing-bar"><div class="spinner"></div>Parsing ${e.name}…</div>
+      <div class="empty-state" style="flex:1"><div class="es-icon" style="animation:spin 1.2s linear infinite">⚙️</div><h2>Parsing…</h2></div>`;
+    return;
+  }
+  if (e.status==='error') {
+    content.innerHTML=`<div class="empty-state" style="padding:24px;align-items:flex-start">
+      <div class="es-icon" style="align-self:center">⚠️</div>
+      <h2 style="align-self:center;margin-bottom:10px">Error</h2>
+      <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:8px;padding:12px 16px;width:100%;max-width:700px;align-self:center">
+        <pre style="font-family:var(--mono);font-size:10px;color:var(--danger);white-space:pre-wrap;word-break:break-all">${esc(e.error||'Unknown error')}</pre>
+      </div>
+      ${e.rawPages?`<div style="align-self:center;margin-top:10px;font-size:10px;color:var(--text2);font-family:var(--mono)">Check the <strong>PDF Text</strong> tab to see what was extracted.</div>`:''}
+    </div>`;
+    return;
+  }
+  if (!e.result) {
+    content.innerHTML=`<div class="empty-state"><div class="es-icon">📄</div><h2>Not parsed yet</h2><p>Click ▶ Parse All</p></div>`;
+    return;
+  }
+
+  const total=e.result.length;
+  const lines=e.result.reduce((s,inv)=>s+(inv.InvoiceModel?.Details?.InvoiceLineItems?.length||0),0);
+  const pages=e.result.reduce((s,i)=>s+(i.pageRanges?.length||0),0);
+  const hasExp=!!e.expected, pass=e.diff?.match;
+  const missN=(e.diff?.issues||[]).filter(i=>i.type==='miss').length;
+  const mismN=(e.diff?.issues||[]).filter(i=>i.type==='mismatch').length;
+  const impN =(e.diff?.improvements||[]).length;
+
+  let html=`<div class="stats-bar">
+    <div class="stat"><div class="stat-val blue">${total}</div><div class="stat-lbl">Invoices</div></div>
+    <div class="stat"><div class="stat-val">${lines}</div><div class="stat-lbl">Line Items</div></div>
+    <div class="stat"><div class="stat-val">${pages}</div><div class="stat-lbl">Pages</div></div>
+    <div class="stat"><div class="stat-val ${!hasExp?'gray':pass?'green':'red'}">${!hasExp?'—':pass?'PASS':'FAIL'}</div><div class="stat-lbl">Compare</div></div>
+    ${hasExp?`<div class="stat"><div class="stat-val ${missN||mismN?'red':'green'}">${missN+mismN}</div><div class="stat-lbl">Misses</div></div>
+    <div class="stat"><div class="stat-val blue">${impN}</div><div class="stat-lbl">Improvements</div></div>`:''}
+  </div>`;
+
+  if (total>1) {
+    html+=`<div class="inv-nav">${e.result.map((inv,i)=>{
+      const num=inv.InvoiceModel?.Header?.InvoiceNumber||i+1;
+      const iIssues=(e.diff?.issues||[]).filter(x=>x.path.startsWith(`[${i}]`));
+      const cls=hasExp?(iIssues.length?'has-diff':'all-good'):'';
+      return `<button class="inv-tab ${cls}${i===S.activeInv?' active':''}" onclick="setInv(${i})">#${num}</button>`;
+    }).join('')}</div>`;
+  }
+  html+='<div id="mainPane" style="flex:1;overflow:hidden;display:flex;flex-direction:row"></div>';
+  content.innerHTML=html;
+
+  const pane=document.getElementById('mainPane');
+
+  // ── PDF side panel ──────────────────────────────────────────────────────
+  const pdfUrl = e._pdfUrl || (e._pdfUrl = URL.createObjectURL(e.file));
+  const showPdf = S.showPdf !== false; // default on
+  pane.innerHTML = `
+    ${showPdf ? `<div id="pdfPanel" style="width:50%;min-width:320px;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;align-items:stretch">
+      <div style="padding:4px 8px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <span style="font-size:9px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.08em">PDF</span>
+        <button onclick="togglePdf()" style="font-size:9px;font-family:var(--mono);background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:4px;padding:2px 7px;cursor:pointer">hide</button>
+      </div>
+      <div style="flex:1;overflow:auto;display:flex;flex-direction:column;align-items:stretch">
+        <embed src="${pdfUrl}" type="application/pdf" style="width:100%;height:100%;min-height:100%;display:block;flex-shrink:0">
+      </div>
+    </div>` : `<div style="display:flex;flex-direction:column;border-right:1px solid var(--border);flex-shrink:0">
+      <button onclick="togglePdf()" style="writing-mode:vertical-rl;font-size:9px;font-family:var(--mono);background:transparent;border:none;color:var(--text2);padding:10px 6px;cursor:pointer;letter-spacing:.08em">▶ PDF</button>
+    </div>`}
+    <div id="fieldsPanel" style="flex:1;overflow:hidden;display:flex;flex-direction:column"></div>`;
+
+  const fieldsPanelEl = document.getElementById('fieldsPanel');
+
+  const tab=hasExp?S.activeTab:'json';
+  const inv=e.result[S.activeInv];
+  // Match expected invoice by InvoiceNumber, fall back to same index
+  const invNum = inv?.InvoiceModel?.Header?.InvoiceNumber;
+  const expInv = hasExp
+    ? (e.expected.find(x => x?.InvoiceModel?.Header?.InvoiceNumber === invNum && invNum)
+       ?? e.expected[S.activeInv]
+       ?? null)
+    : null;
+  if (hasExp && !expInv) console.warn('[compare] expInv is null for index', S.activeInv, 'expected length:', e.expected?.length);
+  const invIssues=(e.diff?.issues||[]).filter(x=>x.path.startsWith(`[${S.activeInv}]`));
+  const invImprovements=(e.diff?.improvements||[]).filter(x=>x.path.startsWith(`[${S.activeInv}]`));
+
+  if (tab==='json') {
+    fieldsPanelEl.innerHTML=`<div class="json-viewer"><pre>${colorize(JSON.stringify(sortJSON(inv),null,2))}</pre></div>`;
+  } else if (tab==='compare' && expInv) {
+    const missCount=invIssues.filter(x=>x.type==='miss').length;
+    const mismCount=invIssues.filter(x=>x.type==='mismatch').length;
+    const impCount=invImprovements.length;
+    const tableRows=buildCompareRows(inv, expInv, invIssues, invImprovements);
+    fieldsPanelEl.innerHTML=`
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;font-family:var(--mono);font-size:10px">
+        ${missCount ?`<span style="color:var(--danger)">✗ ${missCount} miss${missCount!==1?'es':''}</span>`:''}
+        ${mismCount ?`<span style="color:var(--warn)">⚠ ${mismCount} mismatch${mismCount!==1?'es':''}</span>`:''}
+        ${impCount  ?`<span style="color:var(--accent2)">↑ ${impCount} improvement${impCount!==1?'s':''}</span>`:''}
+        ${!missCount&&!mismCount?'<span style="color:var(--accent)">✓ No misses</span>':''}
+        <div style="margin-left:auto;display:flex;gap:12px;color:var(--text2)">
+          <span><span style="display:inline-block;width:9px;height:9px;background:rgba(56,189,248,.3);border-radius:2px;vertical-align:middle;margin-right:3px"></span>Result</span>
+          <span><span style="display:inline-block;width:9px;height:9px;background:rgba(110,231,183,.25);border-radius:2px;vertical-align:middle;margin-right:3px"></span>Expected</span>
+        </div>
+      </div>
+      <div class="cmp-wrap"><table class="cmp-table">
+        <colgroup><col style="width:175px"><col style="width:50%"><col style="width:50%"></colgroup>
+        <thead><tr style="position:sticky;top:0;z-index:2;background:var(--card)">
+          <th style="padding:5px 8px 5px 12px;text-align:left;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border2);border-right:1px solid var(--border)">Field</th>
+          <th style="padding:5px 8px;text-align:left;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2);border-bottom:1px solid var(--border2);border-right:1px solid var(--border)">Result</th>
+          <th style="padding:5px 8px;text-align:left;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border2)">Expected</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table></div>`;
+  } else if (tab==='diff') {
+    const missIss=invIssues.filter(x=>x.type==='miss');
+    const mismIss=invIssues.filter(x=>x.type==='mismatch');
+    const ok=invIssues.length===0;
+    const num=inv?.InvoiceModel?.Header?.InvoiceNumber||S.activeInv+1;
+    const typeTag=type=>type==='miss'
+      ?`<span style="color:var(--danger);font-size:9px;background:rgba(248,113,113,.1);padding:1px 5px;border-radius:3px;margin-right:4px">MISS</span>`
+      :`<span style="color:var(--warn);font-size:9px;background:rgba(251,146,60,.1);padding:1px 5px;border-radius:3px;margin-right:4px">MISMATCH</span>`;
+    fieldsPanelEl.innerHTML=`<div class="diff-panel">
+      <div class="diff-banner ${ok?'pass':'fail'}">
+        <div style="font-size:20px">${ok?'✅':'❌'}</div>
+        <div><h3>${ok?'No Misses':`${missIss.length} miss${missIss.length!==1?'es':''}, ${mismIss.length} mismatch${mismIss.length!==1?'es':''}`}</h3>
+        <p>Invoice #${num} · ${invImprovements.length} improvement${invImprovements.length!==1?'s':''} over baseline</p></div>
+      </div>
+      ${invIssues.length?`<div class="issue-list" style="margin-bottom:12px">${invIssues.map(iss=>`
+        <div class="issue"><div class="issue-path">${typeTag(iss.type)}${iss.path}</div>
+        <div class="issue-detail">got <span class="got-val">${JSON.stringify(iss.got)}</span> · expected <span class="exp-val">${JSON.stringify(iss.exp)}</span></div></div>`).join('')}</div>`:''}
+      ${invImprovements.length?`
+        <div style="font-size:10px;font-family:var(--mono);color:var(--accent2);margin-bottom:6px">↑ ${invImprovements.length} fields extracted beyond baseline</div>
+        <div class="issue-list">${invImprovements.map(iss=>`
+          <div class="issue" style="border-color:rgba(56,189,248,.2);background:rgba(56,189,248,.04)">
+            <div class="issue-path" style="color:var(--accent2)"><span style="color:var(--accent2);font-size:9px;background:rgba(56,189,248,.1);padding:1px 5px;border-radius:3px;margin-right:4px">IMPROVEMENT</span>${iss.path}</div>
+            <div class="issue-detail">extracted <span style="color:var(--accent2)">${JSON.stringify(iss.got)}</span> <span style="color:var(--muted)">(expected null)</span></div>
+          </div>`).join('')}</div>`:''}
+    </div>`;
+  } else if (tab==='raw' && e.rawResult) {
+    const rawInv=e.rawResult[S.activeInv];
+    const ppLog=inv._ppLog||[];
+    fieldsPanelEl.innerHTML=`<div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;border-top:1px solid var(--border)">
+        <div style="overflow:hidden;display:flex;flex-direction:column;border-right:1px solid var(--border)">
+          <div style="padding:5px 12px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--warn);border-bottom:1px solid var(--border);font-family:var(--mono)">RAW LLM (pass 1)</div>
+          <div class="json-viewer"><pre>${colorize(JSON.stringify(sortJSON(rawInv),null,2))}</pre></div>
+        </div>
+        <div style="overflow:hidden;display:flex;flex-direction:column">
+          <div style="padding:5px 12px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border);font-family:var(--mono)">AFTER POST-PROCESSING (pass 2)</div>
+          <div class="json-viewer"><pre>${colorize(JSON.stringify(sortJSON(inv),null,2))}</pre></div>
+        </div>
+      </div>
+      <div class="pp-log-panel">
+        <div style="font-size:9px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Post-processing log — ${ppLog.length} field${ppLog.length!==1?'s':''} updated</div>
+        ${ppLog.length?ppLog.map(l=>`<div style="font-family:var(--mono);font-size:10px;display:flex;gap:8px;margin-bottom:3px">
+          <span style="color:var(--accent2);flex-shrink:0">${l.field}</span>
+          <span style="color:var(--accent);word-break:break-all">${JSON.stringify(l.value).slice(0,80)}</span>
+        </div>`).join(''):'<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">No fields were updated in pass 2.</span>'}
+      </div>
+    </div>`;
+  } else if (tab==='pdftext') {
+    const pgs=e.rawPages||{};
+    const nums=Object.keys(pgs).sort((a,b)=>+a-+b);
+    if (!nums.length) {
+      fieldsPanelEl.innerHTML=`<div class="empty-state"><div class="es-icon">📄</div><h2>No text yet</h2><p>Parse first.</p></div>`;
+    } else {
+      fieldsPanelEl.innerHTML=`<div class="json-viewer">${nums.map(n => {
+        const elements = Array.isArray(pgs[n]) ? pgs[n] : [{type:'Text', text: String(pgs[n])}];
+        const rows = elements.map(el => {
+          const badge = `<span style="font-size:8px;background:rgba(56,189,248,.12);color:var(--accent2);padding:1px 5px;border-radius:3px;margin-right:6px;font-family:var(--mono)">${esc(el.type)}</span>`;
+          const txt   = `<span style="color:var(--text2)">${esc(el.text||'')}</span>`;
+          return `<div style="display:flex;align-items:flex-start;gap:4px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.03)">${badge}${txt}</div>`;
+        }).join('');
+        return `<div style="margin-bottom:16px">
+          <div style="font-size:9px;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;font-family:var(--mono);border-bottom:1px solid var(--border);padding-bottom:3px">
+            Page ${n} — ${elements.length} elements
+          </div>${rows}</div>`;
+      }).join('')}</div>`;
     }
-    return diffs;
+  } else {
+    fieldsPanelEl.innerHTML=`<div class="json-viewer"><pre>${colorize(JSON.stringify(sortJSON(inv),null,2))}</pre></div>`;
   }
-  const keys = new Set([...Object.keys(expected), ...Object.keys(actual||{})]);
-  for (const k of keys) {
-    diffs.push(...deepDiff(expected[k], (actual||{})[k], path ? `${path}.${k}` : k));
-  }
-  return diffs;
 }
 
-function buildDiffTable(diffs) {
-  const table = document.createElement('table');
-  table.className = 'diff-table';
-  table.innerHTML = `<tr><th>Path</th><th>Expected</th><th>Actual</th></tr>`;
-  for (const d of diffs) {
-    const tr = document.createElement('tr');
-    tr.className = 'diff-row';
-    tr.innerHTML = `
-      <td><code>${d.path}</code></td>
-      <td><code>${JSON.stringify(d.expected)}</code></td>
-      <td><code>${JSON.stringify(d.actual)}</code></td>`;
-    table.appendChild(tr);
-  }
-  return table;
+// ── Summary ────────────────────────────────────────────────────────────────
+function showSummary() {
+  S.activeId='__summary__';
+  document.getElementById('tabBar').style.display='none';
+  document.getElementById('tbTitle').innerHTML='Run Summary';
+  const pass=S.files.filter(x=>x.status==='pass').length;
+  const fail=S.files.filter(x=>x.status==='fail').length;
+  const err =S.files.filter(x=>x.status==='error').length;
+  const q   =S.files.filter(x=>['queued','parsed'].includes(x.status)).length;
+  const rows=S.files.map(e=>{
+    const inv=e.result?.length??'—';
+    const lines=e.result?e.result.reduce((s,i)=>s+(i.InvoiceModel?.Details?.InvoiceLineItems?.length||0),0):'—';
+    const missN=(e.diff?.issues||[]).filter(i=>i.type==='miss'||i.type==='mismatch').length;
+    const impN =(e.diff?.improvements||[]).length;
+    const issues=e.expected?(e.diff?
+      `${missN?`<span style="color:var(--danger)">${missN} miss</span> `:'<span style="color:var(--accent)">✓</span> '}${impN?`<span style="color:var(--accent2)">↑${impN}</span>`:''}`:
+      '—'):'<span style="color:var(--muted)">no expected</span>';
+    return `<tr onclick="selectFile('${e.id}')"><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.name}">${e.name}</td>
+      <td><span class="pill ${e.status}">${e.status}</span></td>
+      <td style="text-align:center">${inv}</td><td>${issues}</td><td style="text-align:center">${lines}</td></tr>`;
+  }).join('');
+  document.getElementById('content').innerHTML=`
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-val">${S.files.length}</div><div class="stat-lbl">Total</div></div>
+      <div class="stat"><div class="stat-val green">${pass}</div><div class="stat-lbl">Pass</div></div>
+      <div class="stat"><div class="stat-val red">${fail}</div><div class="stat-lbl">Fail</div></div>
+      <div class="stat"><div class="stat-val" style="color:var(--warn)">${err}</div><div class="stat-lbl">Error</div></div>
+      <div class="stat"><div class="stat-val gray">${q}</div><div class="stat-lbl">No Exp</div></div>
+    </div>
+    <div class="run-summary"><table class="run-table">
+      <thead><tr><th>File</th><th>Status</th><th style="text-align:center">Invoices</th><th>Misses / Improvements</th><th style="text-align:center">Lines</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
 }
+
+// ── Compare table ──────────────────────────────────────────────────────────
+function buildCompareRows(result, expected, issues, improvements) {
+  // Both sides normalized through InvoiceRecord — mirrors models.py
+  const rInv = InvoiceRecord.fromDict(result);
+  const eInv = InvoiceRecord.fromDict(expected);
+
+  function stripPrefix(p) { return p.replace(/^\[\d+\]#[^.]+\.?/, ''); }
+  const issueMap = {}, improveMap = {};
+  issues.forEach(i      => { issueMap[stripPrefix(i.path)]   = i.type; });
+  improvements.forEach(i => { improveMap[stripPrefix(i.path)] = true; });
+
+  const rows = [];
+
+  function cls(fPath, rVal, eVal) {
+    if (issueMap[fPath])   return issueMap[fPath] === 'miss' ? 'row-miss' : 'row-mismatch';
+    if (improveMap[fPath]) return 'row-improve';
+    const r = norm(rVal), e = norm(eVal);
+    if (e && !r) return 'row-miss';
+    if (!e && r) return 'row-improve';
+    if (e && r && r !== e) return 'row-mismatch';
+    return '';
+  }
+
+  function scalarRow(fPath, label, rVal, eVal, indent) {
+    const pad = '&nbsp;'.repeat(indent * 3);
+    rows.push(`<tr class="${cls(fPath, rVal, eVal)}">
+      <td class="cmp-field">${pad}<span class="j-key">${esc(label)}</span></td>
+      <td class="cmp-result">${fmtVal(rVal)}</td>
+      <td class="cmp-expected">${fmtVal(eVal)}</td></tr>`);
+  }
+
+  function sectionRow(label, indent) {
+    const pad = '&nbsp;'.repeat(indent * 3);
+    rows.push(`<tr class="row-section"><td colspan="3">${pad}${esc(label)}</td></tr>`);
+  }
+
+  function addrRows(rA, eA, prefix, indent) {
+    sectionRow(prefix.split('.').pop(), indent);
+    for (const f of ['Name','Address1','Address2','AddressOther','City','State','Zip','Phone','Fax'])
+      scalarRow(`${prefix}.${f}`, f, rA[f], eA[f], indent + 1);
+  }
+
+  // Header scalars
+  sectionRow('Header', 0);
+  for (const f of ['InvoiceNumber','InvoiceDate','OrderNumber','OrderDate','Salesperson',
+                   'CustomerNumber','CustomerPurchaseOrder','VendorName','ShipMethod','Terms'])
+    scalarRow(`Header.${f}`, f, rInv.Header[f], eInv.Header[f], 1);
+  addrRows(rInv.Header.VendorAddress, eInv.Header.VendorAddress, 'Header.VendorAddress', 1);
+  addrRows(rInv.Header.BillToAddress, eInv.Header.BillToAddress, 'Header.BillToAddress', 1);
+  addrRows(rInv.Header.ShipToAddress, eInv.Header.ShipToAddress, 'Header.ShipToAddress', 1);
+
+  // Line items matched by ItemId
+  const allIds = [...new Set([...Object.keys(rInv._byId), ...Object.keys(eInv._byId)])];
+  rows.push(`<tr class="row-section"><td colspan="3">InvoiceLineItems <span style="color:var(--muted)">(${rInv.LineItems.length} result / ${eInv.LineItems.length} expected)</span></td></tr>`);
+  for (const id of allIds) {
+    const rLi = rInv._byId[id] || {}, eLi = eInv._byId[id] || {};
+    sectionRow(`ItemId: ${id}`, 1);
+    for (const f of ['ItemId','LineNumber','ItemName','Unit','CatchWeight','QtyOrdered','QtyShipped','QtyBackOrdered','Price','ExtendedPrice'])
+      scalarRow(`LineItems[${id}].${f}`, f, rLi[f], eLi[f], 2);
+  }
+
+  // Footer
+  sectionRow('Footer', 0);
+  for (const f of ['Subtotal','Total'])
+    scalarRow(`Footer.${f}`, f, rInv.Footer[f], eInv.Footer[f], 1);
+
+  return rows.join('');
+}
+
+function fmtVal(v) {
+  if (v===null||v===undefined) return '<span class="cmp-val-null">null</span>';
+  if (typeof v==='boolean') return `<span class="cmp-val-bool">${v}</span>`;
+  if (typeof v==='number')  return `<span class="cmp-val-num">${v}</span>`;
+  if (Array.isArray(v)&&!v.length) return '<span class="cmp-arr-badge">[ ]</span>';
+  if (Array.isArray(v)) return `<span class="cmp-arr-badge">[${v.length}]</span>`;
+  if (v==='') return '<span class="cmp-val-null">—</span>';
+  return `<span class="cmp-val-str">${esc(String(v))}</span>`;
+}
+
+// ── Colorizer ──────────────────────────────────────────────────────────────
+function colorize(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"([^"]+)":/g,'<span class="j-key">"$1"</span>:')
+    .replace(/: "([^"]*)"/g,': <span class="j-str">"$1"</span>')
+    .replace(/: (-?\d+\.?\d*)/g,': <span class="j-num">$1</span>')
+    .replace(/: (true|false)/g,': <span class="j-bool">$1</span>')
+    .replace(/: (null)/g,': <span class="j-null">null</span>')
+    .replace(/([{}\[\]])/g,'<span class="j-brace">$1</span>');
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Copy / Download ────────────────────────────────────────────────────────
+function copyJSON() {
+  const e=S.files.find(x=>x.id===S.activeId);
+  if (!e?.result) return toast('Nothing to copy','info');
+  navigator.clipboard.writeText(JSON.stringify(e.result,null,2));
+  toast('Copied','ok');
+}
+function downloadJSON() {
+  const e=S.files.find(x=>x.id===S.activeId);
+  if (!e?.result) return toast('Nothing to download','info');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(e.result,null,2)],{type:'application/json'}));
+  a.download=e.stem+'.json'; a.click();
+  toast(`Downloaded ${a.download}`,'ok');
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function toast(msg,type='info') {
+  const el=document.createElement('div');
+  el.className=`toast ${type}`; el.textContent=msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+// ── Toggle init ────────────────────────────────────────────────────────────
+(function(){
+  const t=document.getElementById('ppToggle'), sl=document.getElementById('ppSlider'), st=document.getElementById('ppState');
+  function update(){
+    const on=t.checked;
+    sl.style.background=on?'var(--accent)':'var(--border2)';
+    sl.style.transform=on?'':''
+    st.textContent=on?'ON':'OFF'; st.style.color=on?'var(--accent)':'var(--muted)';
+  }
+  t.addEventListener('change',update); update();
+})();
 </script>
 </body>
 </html>
