@@ -17,6 +17,9 @@ import re
 import traceback
 import tempfile
 import os
+import socket
+from urllib.parse import urlparse
+from datetime import datetime
 from models import InvoiceBatch
 
 try:
@@ -38,13 +41,53 @@ except ImportError:
     print("Missing requests. Run: pip install requests")
     sys.exit(1)
 
-app = Flask(__name__)
-CORS(app)
-
 # ── Config (overridable via env vars) ─────────────────────────────────────
 LLM_ENDPOINT = os.environ.get("LLM_ENDPOINT", "http://localhost:3030/v1/chat/completions")
-LLM_MODEL    = os.environ.get("LLM_MODEL",    "claude-sonnet-4.5")
+LLM_MODEL    = os.environ.get("LLM_MODEL",    "claude-sonnet-4.6")
 LLM_TIMEOUT  = int(os.environ.get("LLM_TIMEOUT", "300"))
+LLM_PRECHECK = os.environ.get("LLM_PRECHECK", "true").lower() != "false"
+LLM_PRECHECK_TIMEOUT = float(os.environ.get("LLM_PRECHECK_TIMEOUT", "1.5"))
+INCLUDE_ERROR_TRACE = os.environ.get("INCLUDE_ERROR_TRACE", "false").lower() == "true"
+
+DEFAULT_CORS_ORIGINS = [
+    r"http://localhost(:\\d+)?",
+    r"http://127\\.0\\.0\\.1(:\\d+)?",
+    "null",  # allows opening index.html directly from file:// during local dev
+]
+
+
+def parse_cors_origins(raw):
+    origins = [x.strip() for x in (raw or "").split(",") if x.strip()]
+    return origins or DEFAULT_CORS_ORIGINS
+
+
+APP_CORS_ORIGINS = parse_cors_origins(os.environ.get("CORS_ORIGINS", ""))
+
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": APP_CORS_ORIGINS}})
+
+
+def api_error(message, status=500, exc=None):
+    payload = {
+        "error": message,
+        "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    }
+    if INCLUDE_ERROR_TRACE and exc is not None:
+        payload["trace"] = traceback.format_exc()
+    return jsonify(payload), status
+
+
+def llm_endpoint_reachable(endpoint, timeout=LLM_PRECHECK_TIMEOUT):
+    """Fast connectivity check so /parse fails early when local OpenRouter is down."""
+    try:
+        parsed = urlparse(endpoint)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return False, "invalid LLM endpoint URL"
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        with socket.create_connection((parsed.hostname, port), timeout=timeout):
+            return True, "ok"
+    except Exception as err:
+        return False, str(err)
 
 # ── Schema ────────────────────────────────────────────────────────────────
 SCHEMA = """[
@@ -368,17 +411,37 @@ ADDRESS RULES (critical):
 # ── Routes ────────────────────────────────────────────────────────────────
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "library": "pdfplumber", "llm_endpoint": LLM_ENDPOINT})
+    reachable, _ = llm_endpoint_reachable(LLM_ENDPOINT)
+    return jsonify({
+        "status": "ok",
+        "library": "pdfplumber",
+        "llm_endpoint": LLM_ENDPOINT,
+        "llm_model": LLM_MODEL,
+        "llm_reachable": reachable,
+        "llm_precheck": LLM_PRECHECK,
+    })
+
+
+@app.route("/config", methods=["GET"])
+def config():
+    return jsonify({
+        "llm_endpoint": LLM_ENDPOINT,
+        "llm_model": LLM_MODEL,
+        "llm_timeout": LLM_TIMEOUT,
+        "llm_precheck": LLM_PRECHECK,
+        "llm_precheck_timeout": LLM_PRECHECK_TIMEOUT,
+        "cors_origins": APP_CORS_ORIGINS,
+    })
 
 
 @app.route("/extract", methods=["POST"])
 def extract():
     """Raw extraction only — returns text elements per page."""
     if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        return api_error("No file uploaded", status=400)
     f = request.files["file"]
     if not f.filename.lower().endswith(".pdf"):
-        return jsonify({"error": "Only PDF files supported"}), 400
+        return api_error("Only PDF files supported", status=400)
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         f.save(tmp.name); tmp_path = tmp.name
@@ -386,7 +449,7 @@ def extract():
     try:
         pages = extract_pages(tmp_path)
         if not pages:
-            return jsonify({"error": "No text extracted. PDF may be image-only."}), 422
+            return api_error("No text extracted. PDF may be image-only.", status=422)
         return jsonify({
             "filename": f.filename,
             "total_pages": len(pages),
@@ -396,7 +459,7 @@ def extract():
         })
     except Exception as e:
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return api_error("Extraction failed", exc=e)
     finally:
         os.unlink(tmp_path)
 
@@ -405,15 +468,24 @@ def extract():
 def parse():
     """Full pipeline: extract PDF → LLM pass 1 → LLM pass 2 → return structured JSON."""
     if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        return api_error("No file uploaded", status=400)
     f = request.files["file"]
     if not f.filename.lower().endswith(".pdf"):
-        return jsonify({"error": "Only PDF files supported"}), 400
+        return api_error("Only PDF files supported", status=400)
 
     # Allow UI to override endpoint/model per request
     endpoint = request.form.get("llm_endpoint", LLM_ENDPOINT)
     model    = request.form.get("llm_model",    LLM_MODEL)
     pp_on    = request.form.get("post_process", "true").lower() != "false"
+
+    if LLM_PRECHECK:
+        reachable, reason = llm_endpoint_reachable(endpoint)
+        if not reachable:
+            return api_error(
+                f"LLM endpoint is not reachable: {endpoint}. "
+                f"Start OpenRouter/local proxy before parsing. ({reason})",
+                status=503,
+            )
 
     # Optional: save output JSON next to the uploaded file's source path
     save_dir = request.form.get("save_dir", "")
@@ -425,7 +497,7 @@ def parse():
         # Step 1: extract text
         pages = extract_pages(tmp_path)
         if not pages:
-            return jsonify({"error": "No text extracted. PDF may be image-only."}), 422
+            return api_error("No text extracted. PDF may be image-only.", status=422)
 
         # Step 2: LLM pass 1
         invoices = llm_pass1(pages, f.filename, endpoint, model)
@@ -468,7 +540,7 @@ def parse():
 
     except Exception as e:
         traceback.print_exc()
-        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+        return api_error("Parse failed", exc=e)
     finally:
         os.unlink(tmp_path)
 
@@ -478,6 +550,10 @@ if __name__ == "__main__":
     print(f"Invoice server running on http://localhost:{port}")
     print(f"  LLM endpoint : {LLM_ENDPOINT}")
     print(f"  LLM model    : {LLM_MODEL}")
+    print(f"  LLM precheck : {LLM_PRECHECK} (timeout={LLM_PRECHECK_TIMEOUT}s)")
+    print(f"  CORS origins : {APP_CORS_ORIGINS}")
+    print(f"  Trace errors : {INCLUDE_ERROR_TRACE}")
+    print(f"  GET  /config  — frontend defaults/config")
     print(f"  POST /parse   — full pipeline (extract + LLM)")
     print(f"  POST /extract — raw text extraction only")
     print(f"  GET  /health  — status")

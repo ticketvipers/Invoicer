@@ -191,7 +191,7 @@ header{position:relative;z-index:10;padding:14px 24px;border-bottom:1px solid va
     <label>Extract</label><input class="ep" id="extractUrl" value="http://localhost:5001/extract" title="unstructured.io local server">
     <label>LLM</label><input class="ep" id="apiUrl" value="http://localhost:3030/v1/chat/completions">
     <label>Model</label><input class="md" id="modelName" value="claude-sonnet-4.6">
-    <label>Save to</label><input class="ep" id="saveDir" value="/Users/aigaurav/Code/invoice-parser/Vendors/Duso/Parsed" placeholder="e.g. /path/to/Parsed" title="Point at ExpectedResults — output saves to sibling Parsed/ folder">
+    <label>Save to</label><input class="ep" id="saveDir" value="" placeholder="Optional: path to ExpectedResults (output saved to sibling Parsed/)" title="Optional. Point at ExpectedResults — output saves to sibling Parsed/ folder">
   </div>
 </header>
 <div class="main">
@@ -261,6 +261,25 @@ header{position:relative;z-index:10;padding:14px 24px;border-bottom:1px solid va
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 const S = { files:[], pending:{}, activeId:null, activeTab:'json', activeInv:0, showPdf:true };
+
+// ── Server config bootstrap ───────────────────────────────────────────────
+function baseFromExtractUrl() {
+  const v = document.getElementById('extractUrl').value.trim();
+  return v.replace(/\/(extract|parse)$/, '');
+}
+
+async function loadServerConfig() {
+  const cfgUrl = `${baseFromExtractUrl()}/config`;
+  try {
+    const res = await fetch(cfgUrl, { method:'GET' });
+    if (!res.ok) return;
+    const cfg = await res.json();
+    if (cfg.llm_endpoint) document.getElementById('apiUrl').value = cfg.llm_endpoint;
+    if (cfg.llm_model) document.getElementById('modelName').value = cfg.llm_model;
+  } catch {
+    // Keep local defaults when backend config endpoint is unavailable.
+  }
+}
 
 // ── Inputs ─────────────────────────────────────────────────────────────────
 document.getElementById('pdfInput').addEventListener('change', e => {
@@ -998,8 +1017,10 @@ function downloadJSON() {
   const e=S.files.find(x=>x.id===S.activeId);
   if (!e?.result) return toast('Nothing to download','info');
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([JSON.stringify(e.result,null,2)],{type:'application/json'}));
+  const objUrl = URL.createObjectURL(new Blob([JSON.stringify(e.result,null,2)],{type:'application/json'}));
+  a.href=objUrl;
   a.download=e.stem+'.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(objUrl),1000);
   toast(`Downloaded ${a.download}`,'ok');
 }
 
@@ -1021,6 +1042,7 @@ function toast(msg,type='info') {
     st.textContent=on?'ON':'OFF'; st.style.color=on?'var(--accent)':'var(--muted)';
   }
   t.addEventListener('change',update); update();
+  loadServerConfig();
 })();
 </script>
 </body>
