@@ -78,7 +78,7 @@ def api_error(message, status=500, exc=None):
 
 
 def llm_endpoint_reachable(endpoint, timeout=LLM_PRECHECK_TIMEOUT):
-    """Fast connectivity check so /parse fails early when local OpenRouter is down."""
+    """Fast connectivity check so /parse fails early when the LLM endpoint is down."""
     try:
         parsed = urlparse(endpoint)
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
@@ -483,7 +483,7 @@ def parse():
         if not reachable:
             return api_error(
                 f"LLM endpoint is not reachable: {endpoint}. "
-                f"Start OpenRouter/local proxy before parsing. ({reason})",
+                f"Start the LLM endpoint before parsing. ({reason})",
                 status=503,
             )
 
