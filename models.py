@@ -4,6 +4,84 @@ from typing import Any
 import json
 
 
+ADDON_TYPE_TO_ID = {
+    "none": "1",
+    "tax": "2",
+    "shipping charge": "3",
+    "drop charge": "4",
+    "bottle deposit": "5",
+    "other charge": "6",
+    "discount": "7",
+}
+
+
+def resolve_addon_type_id(subtype: str, amount: str, existing_type_id: str) -> str:
+    if existing_type_id:
+        return existing_type_id
+
+    s = (subtype or "").strip().lower()
+    if not s:
+        return ""
+
+    # Exact controlled values first.
+    if s in ADDON_TYPE_TO_ID:
+        return ADDON_TYPE_TO_ID[s]
+
+    # Deterministic keyword classification for provider-specific labels.
+    if "tax" in s:
+        return "2"
+    if "ship" in s or "freight" in s or "delivery" in s:
+        return "3"
+    if "drop" in s:
+        return "4"
+    if "bottle" in s and "deposit" in s:
+        return "5"
+
+    amt = (amount or "").strip().replace(",", "")
+    if "discount" in s or "off" in s or (amt.startswith("-") and amt != "-"):
+        return "7"
+
+    return "6"
+
+
+@dataclass
+class Addon:
+    addonSubType: str = ""
+    addonSubTypeId: str = ""
+    amount: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "addonSubType": self.addonSubType,
+            "addonSubTypeId": self.addonSubTypeId,
+            "amount": self.amount,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Addon":
+        if not isinstance(data, dict):
+            return cls()
+        subtype = str(
+            data.get("addonsubType")
+            or data.get("addonSubType")
+            or data.get("AddonSubType")
+            or ""
+        )
+        subtype_id = str(
+            data.get("addonsubTypeId")
+            or data.get("addonSubTypeId")
+            or data.get("AddonSubTypeId")
+            or ""
+        )
+        amount = str(data.get("amount") or "")
+        subtype_id = resolve_addon_type_id(subtype, amount, subtype_id)
+        return cls(
+            addonSubType=subtype,
+            addonSubTypeId=subtype_id,
+            amount=amount,
+        )
+
+
 @dataclass
 class Address:
     Name: str = ""
@@ -90,7 +168,7 @@ class InvoiceLineItem:
     QtyBackOrdered: str = ""
     Price: str = ""
     ExtendedPrice: str = ""
-    Addons: list[Any] = field(default_factory=list)
+    Addons: list[Addon] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -104,12 +182,17 @@ class InvoiceLineItem:
             "QtyBackOrdered": self.QtyBackOrdered,
             "Price": self.Price,
             "ExtendedPrice": self.ExtendedPrice,
-            "Addons": self.Addons,
+            "Addons": [a.to_dict() for a in self.Addons],
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> InvoiceLineItem:
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+        kwargs = {k: v for k, v in data.items() if k in cls.__dataclass_fields__ and k != "Addons"}
+        raw_addons = data.get("Addons")
+        if raw_addons is None:
+            raw_addons = data.get("addons")
+        addons = [Addon.from_dict(a) for a in (raw_addons or []) if isinstance(a, dict)]
+        return cls(**kwargs, Addons=addons)
 
 
 @dataclass
@@ -132,14 +215,22 @@ class InvoiceDetails:
 class InvoiceFooter:
     Subtotal: str = ""
     Total: str = ""
-    Addons: list[Any] = field(default_factory=list)
+    Addons: list[Addon] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {"Subtotal": self.Subtotal, "Total": self.Total, "Addons": self.Addons}
+        return {"Subtotal": self.Subtotal, "Total": self.Total, "Addons": [a.to_dict() for a in self.Addons]}
 
     @classmethod
     def from_dict(cls, data: dict) -> InvoiceFooter:
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+        raw_addons = data.get("Addons")
+        if raw_addons is None:
+            raw_addons = data.get("addons")
+        addons = [Addon.from_dict(a) for a in (raw_addons or []) if isinstance(a, dict)]
+        return cls(
+            Subtotal=data.get("Subtotal", ""),
+            Total=data.get("Total", ""),
+            Addons=addons,
+        )
 
 
 @dataclass

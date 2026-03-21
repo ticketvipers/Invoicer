@@ -1,0 +1,577 @@
+/Users/aigaurav/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Invoice server running on http://localhost:5001
+  LLM endpoint : http://localhost:3030/v1/chat/completions
+  LLM model    : gemini-3-flash-preview
+  LLM precheck : True (timeout=1.5s)
+  CORS origins : ['http://localhost(:\\\\d+)?', 'http://127\\\\.0\\\\.0\\\\.1(:\\\\d+)?', 'null']
+  Trace errors : False
+  GET  /config  — frontend defaults/config
+  POST /parse   — full pipeline (extract + LLM)
+  POST /extract — raw text extraction only
+  GET  /health  — status
+
+ * Serving Flask app 'server'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.1.201:5001
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [21/Mar/2026 10:41:38] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 10:43:53] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 10:44:18] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 10:47:51] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 10:48:08] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 10:55:00] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 10:57:54] "GET /health HTTP/1.1" 200 -
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Cannot set gray stroke color because /'P42' is an invalid float value
+Cannot set gray non-stroke color because /'P42' is an invalid float value
+Cannot set gray stroke color because /'P48' is an invalid float value
+Cannot set gray non-stroke color because /'P48' is an invalid float value
+Cannot set gray stroke color because /'P54' is an invalid float value
+Cannot set gray non-stroke color because /'P54' is an invalid float value
+Cannot set gray stroke color because /'P60' is an invalid float value
+Cannot set gray non-stroke color because /'P60' is an invalid float value
+Cannot set gray stroke color because /'P66' is an invalid float value
+Cannot set gray non-stroke color because /'P66' is an invalid float value
+Cannot set gray stroke color because /'P72' is an invalid float value
+Cannot set gray non-stroke color because /'P72' is an invalid float value
+Cannot set gray stroke color because /'P78' is an invalid float value
+Cannot set gray non-stroke color because /'P78' is an invalid float value
+Cannot set gray stroke color because /'P84' is an invalid float value
+Cannot set gray non-stroke color because /'P84' is an invalid float value
+Cannot set gray stroke color because /'P91' is an invalid float value
+Cannot set gray non-stroke color because /'P91' is an invalid float value
+Cannot set gray stroke color because /'P97' is an invalid float value
+Cannot set gray non-stroke color because /'P97' is an invalid float value
+Cannot set gray stroke color because /'P103' is an invalid float value
+Cannot set gray non-stroke color because /'P103' is an invalid float value
+Cannot set gray stroke color because /'P109' is an invalid float value
+Cannot set gray non-stroke color because /'P109' is an invalid float value
+Cannot set gray stroke color because /'P115' is an invalid float value
+Cannot set gray non-stroke color because /'P115' is an invalid float value
+Cannot set gray stroke color because /'P121' is an invalid float value
+Cannot set gray non-stroke color because /'P121' is an invalid float value
+Cannot set gray stroke color because /'P127' is an invalid float value
+Cannot set gray non-stroke color because /'P127' is an invalid float value
+Cannot set gray stroke color because /'P133' is an invalid float value
+Cannot set gray non-stroke color because /'P133' is an invalid float value
+Cannot set gray stroke color because /'P139' is an invalid float value
+Cannot set gray non-stroke color because /'P139' is an invalid float value
+Cannot set gray stroke color because /'P146' is an invalid float value
+Cannot set gray non-stroke color because /'P146' is an invalid float value
+Cannot set gray stroke color because /'P152' is an invalid float value
+Cannot set gray non-stroke color because /'P152' is an invalid float value
+Cannot set gray stroke color because /'P158' is an invalid float value
+Cannot set gray non-stroke color because /'P158' is an invalid float value
+Cannot set gray stroke color because /'P164' is an invalid float value
+Cannot set gray non-stroke color because /'P164' is an invalid float value
+Cannot set gray stroke color because /'P170' is an invalid float value
+Cannot set gray non-stroke color because /'P170' is an invalid float value
+Cannot set gray stroke color because /'P176' is an invalid float value
+Cannot set gray non-stroke color because /'P176' is an invalid float value
+Cannot set gray stroke color because /'P182' is an invalid float value
+Cannot set gray non-stroke color because /'P182' is an invalid float value
+Cannot set gray stroke color because /'P188' is an invalid float value
+Cannot set gray non-stroke color because /'P188' is an invalid float value
+Cannot set gray stroke color because /'P194' is an invalid float value
+Cannot set gray non-stroke color because /'P194' is an invalid float value
+Cannot set gray stroke color because /'P201' is an invalid float value
+Cannot set gray non-stroke color because /'P201' is an invalid float value
+Cannot set gray stroke color because /'P209' is an invalid float value
+Cannot set gray non-stroke color because /'P209' is an invalid float value
+Cannot set gray stroke color because /'P215' is an invalid float value
+Cannot set gray non-stroke color because /'P215' is an invalid float value
+Cannot set gray stroke color because /'P221' is an invalid float value
+Cannot set gray non-stroke color because /'P221' is an invalid float value
+Cannot set gray stroke color because /'P227' is an invalid float value
+Cannot set gray non-stroke color because /'P227' is an invalid float value
+Cannot set gray stroke color because /'P233' is an invalid float value
+Cannot set gray non-stroke color because /'P233' is an invalid float value
+Cannot set gray stroke color because /'P239' is an invalid float value
+Cannot set gray non-stroke color because /'P239' is an invalid float value
+Cannot set gray stroke color because /'P245' is an invalid float value
+Cannot set gray non-stroke color because /'P245' is an invalid float value
+Cannot set gray stroke color because /'P251' is an invalid float value
+Cannot set gray non-stroke color because /'P251' is an invalid float value
+Cannot set gray stroke color because /'P258' is an invalid float value
+Cannot set gray non-stroke color because /'P258' is an invalid float value
+Cannot set gray stroke color because /'P264' is an invalid float value
+Cannot set gray non-stroke color because /'P264' is an invalid float value
+Cannot set gray stroke color because /'P270' is an invalid float value
+Cannot set gray non-stroke color because /'P270' is an invalid float value
+Cannot set gray stroke color because /'P276' is an invalid float value
+Cannot set gray non-stroke color because /'P276' is an invalid float value
+Cannot set gray stroke color because /'P282' is an invalid float value
+Cannot set gray non-stroke color because /'P282' is an invalid float value
+Cannot set gray stroke color because /'P288' is an invalid float value
+Cannot set gray non-stroke color because /'P288' is an invalid float value
+Cannot set gray stroke color because /'P294' is an invalid float value
+Cannot set gray non-stroke color because /'P294' is an invalid float value
+Cannot set gray stroke color because /'P300' is an invalid float value
+Cannot set gray non-stroke color because /'P300' is an invalid float value
+Cannot set gray stroke color because /'P306' is an invalid float value
+Cannot set gray non-stroke color because /'P306' is an invalid float value
+Cannot set gray stroke color because /'P313' is an invalid float value
+Cannot set gray non-stroke color because /'P313' is an invalid float value
+Cannot set gray stroke color because /'P319' is an invalid float value
+Cannot set gray non-stroke color because /'P319' is an invalid float value
+Cannot set gray stroke color because /'P325' is an invalid float value
+Cannot set gray non-stroke color because /'P325' is an invalid float value
+Cannot set gray stroke color because /'P331' is an invalid float value
+Cannot set gray non-stroke color because /'P331' is an invalid float value
+Cannot set gray stroke color because /'P337' is an invalid float value
+Cannot set gray non-stroke color because /'P337' is an invalid float value
+Cannot set gray stroke color because /'P343' is an invalid float value
+Cannot set gray non-stroke color because /'P343' is an invalid float value
+Cannot set gray stroke color because /'P349' is an invalid float value
+Cannot set gray non-stroke color because /'P349' is an invalid float value
+Cannot set gray stroke color because /'P355' is an invalid float value
+Cannot set gray non-stroke color because /'P355' is an invalid float value
+Cannot set gray stroke color because /'P361' is an invalid float value
+Cannot set gray non-stroke color because /'P361' is an invalid float value
+Cannot set gray stroke color because /'P368' is an invalid float value
+Cannot set gray non-stroke color because /'P368' is an invalid float value
+Cannot set gray stroke color because /'P374' is an invalid float value
+Cannot set gray non-stroke color because /'P374' is an invalid float value
+Cannot set gray stroke color because /'P380' is an invalid float value
+Cannot set gray non-stroke color because /'P380' is an invalid float value
+Cannot set gray stroke color because /'P386' is an invalid float value
+Cannot set gray non-stroke color because /'P386' is an invalid float value
+Cannot set gray stroke color because /'P392' is an invalid float value
+Cannot set gray non-stroke color because /'P392' is an invalid float value
+Cannot set gray stroke color because /'P398' is an invalid float value
+Cannot set gray non-stroke color because /'P398' is an invalid float value
+Cannot set gray stroke color because /'P404' is an invalid float value
+Cannot set gray non-stroke color because /'P404' is an invalid float value
+Cannot set gray stroke color because /'P410' is an invalid float value
+Cannot set gray non-stroke color because /'P410' is an invalid float value
+Cannot set gray stroke color because /'P416' is an invalid float value
+Cannot set gray non-stroke color because /'P416' is an invalid float value
+Cannot set gray stroke color because /'P423' is an invalid float value
+Cannot set gray non-stroke color because /'P423' is an invalid float value
+Cannot set gray stroke color because /'P429' is an invalid float value
+Cannot set gray non-stroke color because /'P429' is an invalid float value
+Cannot set gray stroke color because /'P435' is an invalid float value
+Cannot set gray non-stroke color because /'P435' is an invalid float value
+Cannot set gray stroke color because /'P441' is an invalid float value
+Cannot set gray non-stroke color because /'P441' is an invalid float value
+Cannot set gray stroke color because /'P447' is an invalid float value
+Cannot set gray non-stroke color because /'P447' is an invalid float value
+Cannot set gray stroke color because /'P453' is an invalid float value
+Cannot set gray non-stroke color because /'P453' is an invalid float value
+Cannot set gray stroke color because /'P459' is an invalid float value
+Cannot set gray non-stroke color because /'P459' is an invalid float value
+Cannot set gray stroke color because /'P465' is an invalid float value
+Cannot set gray non-stroke color because /'P465' is an invalid float value
+Cannot set gray stroke color because /'P471' is an invalid float value
+Cannot set gray non-stroke color because /'P471' is an invalid float value
+Cannot set gray stroke color because /'P478' is an invalid float value
+Cannot set gray non-stroke color because /'P478' is an invalid float value
+Cannot set gray stroke color because /'P484' is an invalid float value
+Cannot set gray non-stroke color because /'P484' is an invalid float value
+Cannot set gray stroke color because /'P490' is an invalid float value
+Cannot set gray non-stroke color because /'P490' is an invalid float value
+Cannot set gray stroke color because /'P496' is an invalid float value
+Cannot set gray non-stroke color because /'P496' is an invalid float value
+Cannot set gray stroke color because /'P502' is an invalid float value
+Cannot set gray non-stroke color because /'P502' is an invalid float value
+Cannot set gray stroke color because /'P508' is an invalid float value
+Cannot set gray non-stroke color because /'P508' is an invalid float value
+Cannot set gray stroke color because /'P514' is an invalid float value
+Cannot set gray non-stroke color because /'P514' is an invalid float value
+Cannot set gray stroke color because /'P520' is an invalid float value
+Cannot set gray non-stroke color because /'P520' is an invalid float value
+Cannot set gray stroke color because /'P526' is an invalid float value
+Cannot set gray non-stroke color because /'P526' is an invalid float value
+Cannot set gray stroke color because /'P533' is an invalid float value
+Cannot set gray non-stroke color because /'P533' is an invalid float value
+Cannot set gray stroke color because /'P539' is an invalid float value
+Cannot set gray non-stroke color because /'P539' is an invalid float value
+Cannot set gray stroke color because /'P545' is an invalid float value
+Cannot set gray non-stroke color because /'P545' is an invalid float value
+Cannot set gray stroke color because /'P551' is an invalid float value
+Cannot set gray non-stroke color because /'P551' is an invalid float value
+Cannot set gray stroke color because /'P557' is an invalid float value
+Cannot set gray non-stroke color because /'P557' is an invalid float value
+Cannot set gray stroke color because /'P563' is an invalid float value
+Cannot set gray non-stroke color because /'P563' is an invalid float value
+Cannot set gray stroke color because /'P569' is an invalid float value
+Cannot set gray non-stroke color because /'P569' is an invalid float value
+Cannot set gray stroke color because /'P575' is an invalid float value
+Cannot set gray non-stroke color because /'P575' is an invalid float value
+Cannot set gray stroke color because /'P581' is an invalid float value
+Cannot set gray non-stroke color because /'P581' is an invalid float value
+Cannot set gray stroke color because /'P588' is an invalid float value
+Cannot set gray non-stroke color because /'P588' is an invalid float value
+Cannot set gray stroke color because /'P596' is an invalid float value
+Cannot set gray non-stroke color because /'P596' is an invalid float value
+Cannot set gray stroke color because /'P602' is an invalid float value
+Cannot set gray non-stroke color because /'P602' is an invalid float value
+Cannot set gray stroke color because /'P608' is an invalid float value
+Cannot set gray non-stroke color because /'P608' is an invalid float value
+Cannot set gray stroke color because /'P614' is an invalid float value
+Cannot set gray non-stroke color because /'P614' is an invalid float value
+Cannot set gray stroke color because /'P620' is an invalid float value
+Cannot set gray non-stroke color because /'P620' is an invalid float value
+Cannot set gray stroke color because /'P626' is an invalid float value
+Cannot set gray non-stroke color because /'P626' is an invalid float value
+Cannot set gray stroke color because /'P632' is an invalid float value
+Cannot set gray non-stroke color because /'P632' is an invalid float value
+Cannot set gray stroke color because /'P638' is an invalid float value
+Cannot set gray non-stroke color because /'P638' is an invalid float value
+Cannot set gray stroke color because /'P645' is an invalid float value
+Cannot set gray non-stroke color because /'P645' is an invalid float value
+127.0.0.1 - - [21/Mar/2026 10:58:07] "POST /parse HTTP/1.1" 200 -
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Could get FontBBox from font descriptor because None cannot be parsed as 4 floats
+Cannot set gray stroke color because /'P42' is an invalid float value
+Cannot set gray non-stroke color because /'P42' is an invalid float value
+Cannot set gray stroke color because /'P48' is an invalid float value
+Cannot set gray non-stroke color because /'P48' is an invalid float value
+Cannot set gray stroke color because /'P54' is an invalid float value
+Cannot set gray non-stroke color because /'P54' is an invalid float value
+Cannot set gray stroke color because /'P60' is an invalid float value
+Cannot set gray non-stroke color because /'P60' is an invalid float value
+Cannot set gray stroke color because /'P66' is an invalid float value
+Cannot set gray non-stroke color because /'P66' is an invalid float value
+Cannot set gray stroke color because /'P72' is an invalid float value
+Cannot set gray non-stroke color because /'P72' is an invalid float value
+Cannot set gray stroke color because /'P78' is an invalid float value
+Cannot set gray non-stroke color because /'P78' is an invalid float value
+Cannot set gray stroke color because /'P84' is an invalid float value
+Cannot set gray non-stroke color because /'P84' is an invalid float value
+Cannot set gray stroke color because /'P91' is an invalid float value
+Cannot set gray non-stroke color because /'P91' is an invalid float value
+Cannot set gray stroke color because /'P97' is an invalid float value
+Cannot set gray non-stroke color because /'P97' is an invalid float value
+Cannot set gray stroke color because /'P103' is an invalid float value
+Cannot set gray non-stroke color because /'P103' is an invalid float value
+Cannot set gray stroke color because /'P109' is an invalid float value
+Cannot set gray non-stroke color because /'P109' is an invalid float value
+Cannot set gray stroke color because /'P115' is an invalid float value
+Cannot set gray non-stroke color because /'P115' is an invalid float value
+Cannot set gray stroke color because /'P121' is an invalid float value
+Cannot set gray non-stroke color because /'P121' is an invalid float value
+Cannot set gray stroke color because /'P127' is an invalid float value
+Cannot set gray non-stroke color because /'P127' is an invalid float value
+Cannot set gray stroke color because /'P133' is an invalid float value
+Cannot set gray non-stroke color because /'P133' is an invalid float value
+Cannot set gray stroke color because /'P139' is an invalid float value
+Cannot set gray non-stroke color because /'P139' is an invalid float value
+Cannot set gray stroke color because /'P146' is an invalid float value
+Cannot set gray non-stroke color because /'P146' is an invalid float value
+Cannot set gray stroke color because /'P152' is an invalid float value
+Cannot set gray non-stroke color because /'P152' is an invalid float value
+Cannot set gray stroke color because /'P158' is an invalid float value
+Cannot set gray non-stroke color because /'P158' is an invalid float value
+Cannot set gray stroke color because /'P164' is an invalid float value
+Cannot set gray non-stroke color because /'P164' is an invalid float value
+Cannot set gray stroke color because /'P170' is an invalid float value
+Cannot set gray non-stroke color because /'P170' is an invalid float value
+Cannot set gray stroke color because /'P176' is an invalid float value
+Cannot set gray non-stroke color because /'P176' is an invalid float value
+Cannot set gray stroke color because /'P182' is an invalid float value
+Cannot set gray non-stroke color because /'P182' is an invalid float value
+Cannot set gray stroke color because /'P188' is an invalid float value
+Cannot set gray non-stroke color because /'P188' is an invalid float value
+Cannot set gray stroke color because /'P194' is an invalid float value
+Cannot set gray non-stroke color because /'P194' is an invalid float value
+Cannot set gray stroke color because /'P201' is an invalid float value
+Cannot set gray non-stroke color because /'P201' is an invalid float value
+Cannot set gray stroke color because /'P209' is an invalid float value
+Cannot set gray non-stroke color because /'P209' is an invalid float value
+Cannot set gray stroke color because /'P215' is an invalid float value
+Cannot set gray non-stroke color because /'P215' is an invalid float value
+Cannot set gray stroke color because /'P221' is an invalid float value
+Cannot set gray non-stroke color because /'P221' is an invalid float value
+Cannot set gray stroke color because /'P227' is an invalid float value
+Cannot set gray non-stroke color because /'P227' is an invalid float value
+Cannot set gray stroke color because /'P233' is an invalid float value
+Cannot set gray non-stroke color because /'P233' is an invalid float value
+Cannot set gray stroke color because /'P239' is an invalid float value
+Cannot set gray non-stroke color because /'P239' is an invalid float value
+Cannot set gray stroke color because /'P245' is an invalid float value
+Cannot set gray non-stroke color because /'P245' is an invalid float value
+Cannot set gray stroke color because /'P251' is an invalid float value
+Cannot set gray non-stroke color because /'P251' is an invalid float value
+Cannot set gray stroke color because /'P258' is an invalid float value
+Cannot set gray non-stroke color because /'P258' is an invalid float value
+Cannot set gray stroke color because /'P264' is an invalid float value
+Cannot set gray non-stroke color because /'P264' is an invalid float value
+Cannot set gray stroke color because /'P270' is an invalid float value
+Cannot set gray non-stroke color because /'P270' is an invalid float value
+Cannot set gray stroke color because /'P276' is an invalid float value
+Cannot set gray non-stroke color because /'P276' is an invalid float value
+Cannot set gray stroke color because /'P282' is an invalid float value
+Cannot set gray non-stroke color because /'P282' is an invalid float value
+Cannot set gray stroke color because /'P288' is an invalid float value
+Cannot set gray non-stroke color because /'P288' is an invalid float value
+Cannot set gray stroke color because /'P294' is an invalid float value
+Cannot set gray non-stroke color because /'P294' is an invalid float value
+Cannot set gray stroke color because /'P300' is an invalid float value
+Cannot set gray non-stroke color because /'P300' is an invalid float value
+Cannot set gray stroke color because /'P306' is an invalid float value
+Cannot set gray non-stroke color because /'P306' is an invalid float value
+Cannot set gray stroke color because /'P313' is an invalid float value
+Cannot set gray non-stroke color because /'P313' is an invalid float value
+Cannot set gray stroke color because /'P319' is an invalid float value
+Cannot set gray non-stroke color because /'P319' is an invalid float value
+Cannot set gray stroke color because /'P325' is an invalid float value
+Cannot set gray non-stroke color because /'P325' is an invalid float value
+Cannot set gray stroke color because /'P331' is an invalid float value
+Cannot set gray non-stroke color because /'P331' is an invalid float value
+Cannot set gray stroke color because /'P337' is an invalid float value
+Cannot set gray non-stroke color because /'P337' is an invalid float value
+Cannot set gray stroke color because /'P343' is an invalid float value
+Cannot set gray non-stroke color because /'P343' is an invalid float value
+Cannot set gray stroke color because /'P349' is an invalid float value
+Cannot set gray non-stroke color because /'P349' is an invalid float value
+Cannot set gray stroke color because /'P355' is an invalid float value
+Cannot set gray non-stroke color because /'P355' is an invalid float value
+Cannot set gray stroke color because /'P361' is an invalid float value
+Cannot set gray non-stroke color because /'P361' is an invalid float value
+Cannot set gray stroke color because /'P368' is an invalid float value
+Cannot set gray non-stroke color because /'P368' is an invalid float value
+Cannot set gray stroke color because /'P374' is an invalid float value
+Cannot set gray non-stroke color because /'P374' is an invalid float value
+Cannot set gray stroke color because /'P380' is an invalid float value
+Cannot set gray non-stroke color because /'P380' is an invalid float value
+Cannot set gray stroke color because /'P386' is an invalid float value
+Cannot set gray non-stroke color because /'P386' is an invalid float value
+Cannot set gray stroke color because /'P392' is an invalid float value
+Cannot set gray non-stroke color because /'P392' is an invalid float value
+Cannot set gray stroke color because /'P398' is an invalid float value
+Cannot set gray non-stroke color because /'P398' is an invalid float value
+Cannot set gray stroke color because /'P404' is an invalid float value
+Cannot set gray non-stroke color because /'P404' is an invalid float value
+Cannot set gray stroke color because /'P410' is an invalid float value
+Cannot set gray non-stroke color because /'P410' is an invalid float value
+Cannot set gray stroke color because /'P416' is an invalid float value
+Cannot set gray non-stroke color because /'P416' is an invalid float value
+Cannot set gray stroke color because /'P423' is an invalid float value
+Cannot set gray non-stroke color because /'P423' is an invalid float value
+Cannot set gray stroke color because /'P429' is an invalid float value
+Cannot set gray non-stroke color because /'P429' is an invalid float value
+Cannot set gray stroke color because /'P435' is an invalid float value
+Cannot set gray non-stroke color because /'P435' is an invalid float value
+Cannot set gray stroke color because /'P441' is an invalid float value
+Cannot set gray non-stroke color because /'P441' is an invalid float value
+Cannot set gray stroke color because /'P447' is an invalid float value
+Cannot set gray non-stroke color because /'P447' is an invalid float value
+Cannot set gray stroke color because /'P453' is an invalid float value
+Cannot set gray non-stroke color because /'P453' is an invalid float value
+Cannot set gray stroke color because /'P459' is an invalid float value
+Cannot set gray non-stroke color because /'P459' is an invalid float value
+Cannot set gray stroke color because /'P465' is an invalid float value
+Cannot set gray non-stroke color because /'P465' is an invalid float value
+Cannot set gray stroke color because /'P471' is an invalid float value
+Cannot set gray non-stroke color because /'P471' is an invalid float value
+Cannot set gray stroke color because /'P478' is an invalid float value
+Cannot set gray non-stroke color because /'P478' is an invalid float value
+Cannot set gray stroke color because /'P484' is an invalid float value
+Cannot set gray non-stroke color because /'P484' is an invalid float value
+Cannot set gray stroke color because /'P490' is an invalid float value
+Cannot set gray non-stroke color because /'P490' is an invalid float value
+Cannot set gray stroke color because /'P496' is an invalid float value
+Cannot set gray non-stroke color because /'P496' is an invalid float value
+Cannot set gray stroke color because /'P502' is an invalid float value
+Cannot set gray non-stroke color because /'P502' is an invalid float value
+Cannot set gray stroke color because /'P508' is an invalid float value
+Cannot set gray non-stroke color because /'P508' is an invalid float value
+Cannot set gray stroke color because /'P514' is an invalid float value
+Cannot set gray non-stroke color because /'P514' is an invalid float value
+Cannot set gray stroke color because /'P520' is an invalid float value
+Cannot set gray non-stroke color because /'P520' is an invalid float value
+Cannot set gray stroke color because /'P526' is an invalid float value
+Cannot set gray non-stroke color because /'P526' is an invalid float value
+Cannot set gray stroke color because /'P533' is an invalid float value
+Cannot set gray non-stroke color because /'P533' is an invalid float value
+Cannot set gray stroke color because /'P539' is an invalid float value
+Cannot set gray non-stroke color because /'P539' is an invalid float value
+Cannot set gray stroke color because /'P545' is an invalid float value
+Cannot set gray non-stroke color because /'P545' is an invalid float value
+Cannot set gray stroke color because /'P551' is an invalid float value
+Cannot set gray non-stroke color because /'P551' is an invalid float value
+Cannot set gray stroke color because /'P557' is an invalid float value
+Cannot set gray non-stroke color because /'P557' is an invalid float value
+Cannot set gray stroke color because /'P563' is an invalid float value
+Cannot set gray non-stroke color because /'P563' is an invalid float value
+Cannot set gray stroke color because /'P569' is an invalid float value
+Cannot set gray non-stroke color because /'P569' is an invalid float value
+Cannot set gray stroke color because /'P575' is an invalid float value
+Cannot set gray non-stroke color because /'P575' is an invalid float value
+Cannot set gray stroke color because /'P581' is an invalid float value
+Cannot set gray non-stroke color because /'P581' is an invalid float value
+Cannot set gray stroke color because /'P588' is an invalid float value
+Cannot set gray non-stroke color because /'P588' is an invalid float value
+Cannot set gray stroke color because /'P596' is an invalid float value
+Cannot set gray non-stroke color because /'P596' is an invalid float value
+Cannot set gray stroke color because /'P602' is an invalid float value
+Cannot set gray non-stroke color because /'P602' is an invalid float value
+Cannot set gray stroke color because /'P608' is an invalid float value
+Cannot set gray non-stroke color because /'P608' is an invalid float value
+Cannot set gray stroke color because /'P614' is an invalid float value
+Cannot set gray non-stroke color because /'P614' is an invalid float value
+Cannot set gray stroke color because /'P620' is an invalid float value
+Cannot set gray non-stroke color because /'P620' is an invalid float value
+Cannot set gray stroke color because /'P626' is an invalid float value
+Cannot set gray non-stroke color because /'P626' is an invalid float value
+Cannot set gray stroke color because /'P632' is an invalid float value
+Cannot set gray non-stroke color because /'P632' is an invalid float value
+Cannot set gray stroke color because /'P638' is an invalid float value
+Cannot set gray non-stroke color because /'P638' is an invalid float value
+Cannot set gray stroke color because /'P645' is an invalid float value
+Cannot set gray non-stroke color because /'P645' is an invalid float value
+127.0.0.1 - - [21/Mar/2026 10:58:20] "POST /extract HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:09:28] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:09:58] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:10:07] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:10:18] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:10:29] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:10:37] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:10:46] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:10:59] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:11:08] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:11:30] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:12:06] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:13:22] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:13:51] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:14:56] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:20:18] "[33mPOST /score HTTP/1.1[0m" 404 -
+/Users/aigaurav/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Invoice server running on http://localhost:5001
+  LLM endpoint : http://localhost:3030/v1/chat/completions
+  LLM model    : gemini-3-flash-preview
+  LLM precheck : True (timeout=1.5s)
+  CORS origins : ['http://localhost(:\\\\d+)?', 'http://127\\\\.0\\\\.0\\\\.1(:\\\\d+)?', 'null']
+  Trace errors : False
+  GET  /config  — frontend defaults/config
+  POST /parse   — full pipeline (extract + LLM)
+  POST /extract — raw text extraction only
+  GET  /health  — status
+
+ * Serving Flask app 'server'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.1.201:5001
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [21/Mar/2026 11:20:35] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:20:36] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:24:42] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:25:35] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:25:35] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:25:35] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:26:28] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:26:28] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:26:28] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:28:44] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:30:02] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:30:02] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:30:02] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:41:22] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:42:39] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:42:39] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:42:40] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:44:27] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:44:28] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:44:29] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:45:04] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:45:04] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:45:04] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:47:21] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:48:35] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:48:35] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:48:35] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:51:24] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:51:24] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 11:51:25] "POST /score HTTP/1.1" 200 -
+/Users/aigaurav/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Invoice server running on http://localhost:5001
+  LLM endpoint : http://localhost:3030/v1/chat/completions
+  LLM model    : gemini-3-flash-preview
+  LLM precheck : True (timeout=1.5s)
+  CORS origins : ['http://localhost(:\\\\d+)?', 'http://127\\\\.0\\\\.0\\\\.1(:\\\\d+)?', 'null']
+  Trace errors : False
+  GET  /config  — frontend defaults/config
+  POST /parse   — full pipeline (extract + LLM)
+  POST /extract — raw text extraction only
+  GET  /health  — status
+
+ * Serving Flask app 'server'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.1.201:5001
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [21/Mar/2026 14:54:15] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 14:54:15] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 14:54:15] "[31m[1mPOST /parse HTTP/1.1[0m" 400 -
+127.0.0.1 - - [21/Mar/2026 14:54:17] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 14:54:17] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 14:54:22] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:04:32] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:04:32] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:04:32] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:05:22] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:05:22] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:05:22] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:05:54] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:05:54] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:05:54] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:06:04] "GET /config HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:06:40] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:06:40] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:06:40] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:07:33] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:07:33] "OPTIONS /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 15:07:33] "POST /score HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 18:07:44] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 18:09:32] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 18:09:46] "POST /extract HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 18:10:16] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 18:10:52] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 18:11:50] "POST /parse HTTP/1.1" 200 -
+127.0.0.1 - - [21/Mar/2026 18:12:05] "POST /extract HTTP/1.1" 200 -

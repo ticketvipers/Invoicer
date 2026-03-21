@@ -1,0 +1,30 @@
+{
+  "file": "LP-OCR Evaluation Tool-210326-145601.pdf",
+  "summary": {
+    "ocr_text_extraction": {
+      "pages_detected": 5,
+      "elements_detected": 126,
+      "characters_extracted": 5457,
+      "characters_per_page": 1091.4,
+      "status": "pass"
+    },
+    "invoice_schema_fit": {
+      "invoices_detected": 1,
+      "schema_leaf_fields_total": 41,
+      "schema_leaf_fields_filled": 3,
+      "coverage_percent": 7.32,
+      "accuracy_proxy": 7.32,
+      "note": "This is field coverage against the invoice schema, not ground-truth OCR character accuracy."
+    }
+  },
+  "key_observations": [
+    "Document appears to be an OCR evaluation/reference PDF, not a transactional invoice.",
+    "Raw text extraction is successful (multi-page text/tables extracted).",
+    "Invoice parser finds very few invoice-specific fields, so schema-fit accuracy is low."
+  ],
+  "extracted_non_empty_invoice_fields": {
+    "Header.InvoiceDate": "20261102",
+    "Header.VendorAddress.Name": "OCR Evaluation Tool",
+    "Header.VendorName": "OCR Evaluation Tool"
+  }
+}

@@ -21,6 +21,7 @@ import socket
 from urllib.parse import urlparse
 from datetime import datetime
 from models import InvoiceBatch
+from accuracy import calculate_accuracy
 
 try:
     from flask import Flask, request, jsonify
@@ -121,14 +122,18 @@ SCHEMA = """[
             "QtyBackOrdered": "",
             "Price": "",
             "ExtendedPrice": "",
-            "Addons": []
+            "Addons": [
+                            { "addonSubType": "", "addonSubTypeId": "", "amount": "" }
+            ]
           }
         ]
       },
       "Footer": {
         "Subtotal": "",
         "Total": "",
-        "Addons": []
+        "Addons": [
+                    { "addonSubType": "", "addonSubTypeId": "", "amount": "" }
+        ]
       }
     },
     "pdfContent": "",
@@ -147,6 +152,7 @@ Rules:
 - Address objects (VendorAddress, BillToAddress, ShipToAddress) are always present as objects — use "" for missing sub-fields
 - CustomerPurchaseOrder: look for "PO", "P.O.", "Purchase Order", "Cust PO", "PO #-" labels near the top header
 - All values are strings. Use negative strings for credit memo quantities/prices e.g. "-5"
+- Addons object keys must be exactly: "addonSubType", "addonSubTypeId", "amount"
 - pageRanges: array of page numbers (integers) this invoice spans
 - pdfContent: always "". invoiceStatus: always "1". resultMessage: always "".
 - If a PDF contains multiple distinct invoices (different invoice numbers), return one array element per invoice.
@@ -345,6 +351,7 @@ Fill in only the empty fields listed above. Return ONLY a JSON object with Pasca
   "Footer": {{ "Subtotal": "500.00", "Total": "540.00" }},
   "LineItems": [{{ "Index": 0, "Unit": "EA" }}]
 }}
+For any Addons objects, always use these exact keys inside each addon object: "addonSubType", "addonSubTypeId", "amount".
 ADDRESS RULES (critical):
 - The header area has a two-column layout. Bill-to is on the LEFT side of each line, ship-to is on the RIGHT side (after a large gap).
 - Example:
@@ -378,12 +385,16 @@ ADDRESS RULES (critical):
 
             # Apply footer patches
             if isinstance(patch.get("Footer"), dict):
+                footer_patch = patch["Footer"]
                 for k in ("Subtotal", "Total"):
-                    if patch["Footer"].get(k) and not ft.get(k):
-                        ft[k] = patch["Footer"][k]
+                    if footer_patch.get(k) and not ft.get(k):
+                        ft[k] = footer_patch[k]
                         inv["_ppLog"].append({"field": f"Footer.{k}", "value": ft[k]})
-                if patch["Footer"].get("Addons") and not ft.get("Addons"):
-                    ft["Addons"] = patch["Footer"]["Addons"]
+                patch_addons = footer_patch.get("Addons")
+                if patch_addons is None:
+                    patch_addons = footer_patch.get("addons")
+                if patch_addons and not ft.get("Addons"):
+                    ft["Addons"] = patch_addons
                     inv["_ppLog"].append({"field": "Footer.Addons", "value": ft["Addons"]})
 
             # Apply line item patches
@@ -432,6 +443,29 @@ def config():
         "llm_precheck_timeout": LLM_PRECHECK_TIMEOUT,
         "cors_origins": APP_CORS_ORIGINS,
     })
+
+
+@app.route("/score", methods=["POST"])
+def score():
+    """Score OCR result vs expected JSON using backend accuracy rules."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        result = payload.get("result", [])
+        expected = payload.get("expected", [])
+
+        if isinstance(result, dict):
+            result = [result]
+        if isinstance(expected, dict):
+            expected = [expected]
+
+        if not isinstance(result, list) or not isinstance(expected, list):
+            return api_error("Invalid payload: result and expected must be arrays", status=400)
+
+        accuracy = calculate_accuracy(result, expected)
+        return jsonify(accuracy)
+    except Exception as exc:
+        traceback.print_exc()
+        return api_error("Accuracy scoring failed", exc=exc)
 
 
 @app.route("/extract", methods=["POST"])
