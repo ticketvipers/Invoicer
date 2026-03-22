@@ -25,6 +25,7 @@ header{position:relative;z-index:10;padding:14px 24px;border-bottom:1px solid va
 .cfg input:focus{border-color:var(--accent)}
 .cfg .ep{width:220px} .cfg .md{width:130px}
 .main{position:relative;z-index:1;display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 59px)}
+.main.show-pdf{grid-template-columns:340px minmax(320px, 1fr) 1fr;}
 /* LEFT */
 .left{border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface)}
 .setup{padding:12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
@@ -232,6 +233,17 @@ header{position:relative;z-index:10;padding:14px 24px;border-bottom:1px solid va
       </label>
       <span class="toggle-label">Post-processing (LLM second pass)</span>
       <span class="toggle-state" id="ppState" style="color:var(--accent)">ON</span>
+    </div>
+  </div>
+  <!-- PDF SECTION -->
+  <div class="center" id="pdfSection" style="display:none; flex-direction:column; border-right:1px solid var(--border); overflow:hidden; background:var(--surface);">
+    <div style="padding:4px 8px; border-bottom:1px solid var(--border); background:var(--surface); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+      <span style="font-size:9px; font-family:var(--mono); color:var(--text2); text-transform:uppercase; letter-spacing:.08em;">PDF Document</span>
+      <div style="display:flex; gap:6px;">
+        <button onclick="togglePdf()" style="font-size:9px; font-family:var(--mono); background:transparent; border:1px solid var(--border2); color:var(--text2); border-radius:4px; padding:2px 7px; cursor:pointer;" title="Hide PDF">hide</button>
+      </div>
+    </div>
+    <div id="pdfEmbedContainer" style="flex:1; overflow:auto; display:flex; flex-direction:column; align-items:stretch;">
     </div>
   </div>
   <!-- RIGHT -->

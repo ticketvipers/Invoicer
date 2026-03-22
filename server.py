@@ -232,6 +232,103 @@ def format_pages_for_llm(pages):
     return "\n\n".join(parts)
 
 
+INVOICE_NUM_RE = re.compile(r"\b\d{6}-\d{2}\b")
+
+
+def _page_text(elements):
+    lines = []
+    for el in elements or []:
+        txt = (el or {}).get("text") if isinstance(el, dict) else ""
+        if txt:
+            lines.append(str(txt))
+    return "\n".join(lines)
+
+
+def _infer_page_invoice_number_map(pages):
+    """Infer one invoice number per page when possible using regex hits in page text."""
+    inferred = {}
+    prev = ""
+    for page_num, elements in sorted(pages.items(), key=lambda x: int(x[0])):
+        txt = _page_text(elements)
+        hits = []
+        seen = set()
+        for m in INVOICE_NUM_RE.findall(txt):
+            if m not in seen:
+                hits.append(m)
+                seen.add(m)
+
+        chosen = ""
+        if len(hits) == 1:
+            chosen = hits[0]
+        elif len(hits) > 1:
+            # Keep continuity if previous invoice number is present on this page.
+            chosen = prev if prev and prev in hits else hits[0]
+        else:
+            # Carry previous invoice across continuation pages without explicit header.
+            chosen = prev
+
+        inferred[str(page_num)] = chosen
+        if chosen:
+            prev = chosen
+    return inferred
+
+
+def _build_page_chunks_by_invoice(pages):
+    """Create contiguous page chunks keyed by inferred invoice number."""
+    page_map = _infer_page_invoice_number_map(pages)
+    unique_invoice_nums = sorted({v for v in page_map.values() if v})
+    if len(unique_invoice_nums) <= 1:
+        return [{
+            "invoiceNumber": unique_invoice_nums[0] if unique_invoice_nums else "",
+            "pageNumbers": [int(p) for p in sorted(pages.keys(), key=lambda x: int(x))],
+            "pages": {k: pages[k] for k in sorted(pages.keys(), key=lambda x: int(x))},
+        }]
+
+    chunks = []
+    cur_num = None
+    cur_pages = []
+
+    for p in sorted(pages.keys(), key=lambda x: int(x)):
+        page_key = str(p)
+        inv_num = page_map.get(page_key, "")
+        if cur_num is None:
+            cur_num = inv_num
+            cur_pages = [page_key]
+            continue
+        if inv_num == cur_num:
+            cur_pages.append(page_key)
+            continue
+
+        chunks.append({
+            "invoiceNumber": cur_num,
+            "pageNumbers": [int(x) for x in cur_pages],
+            "pages": {x: pages[int(x)] if int(x) in pages else pages[x] for x in cur_pages},
+        })
+        cur_num = inv_num
+        cur_pages = [page_key]
+
+    if cur_pages:
+        chunks.append({
+            "invoiceNumber": cur_num,
+            "pageNumbers": [int(x) for x in cur_pages],
+            "pages": {x: pages[int(x)] if int(x) in pages else pages[x] for x in cur_pages},
+        })
+
+    # Merge adjacent unknown chunks into previous chunk when possible.
+    merged = []
+    for c in chunks:
+        if c["invoiceNumber"]:
+            merged.append(c)
+            continue
+        if merged:
+            merged[-1]["pageNumbers"].extend(c["pageNumbers"])
+            merged[-1]["pages"].update(c["pages"])
+        else:
+            merged.append(c)
+
+    return merged
+
+
 # ── LLM helpers ───────────────────────────────────────────────────────────
 def llm_call(messages, endpoint=None, model=None):
     endpoint = endpoint or LLM_ENDPOINT
@@ -284,6 +381,31 @@ def llm_pass1(pages, filename, endpoint, model):
     if not isinstance(result, list):
         raise ValueError("LLM did not return a JSON array")
     return result
+
+
+def llm_pass1_chunked(pages, filename, endpoint, model):
+    """Run pass1 on inferred per-invoice page chunks for better multi-invoice recall."""
+    chunks = _build_page_chunks_by_invoice(pages)
+    if len(chunks) <= 1:
+        return llm_pass1(pages, filename, endpoint, model)
+
+    print(f"[Pass 1] {filename}: using {len(chunks)} page chunks by inferred invoice number")
+    invoices = []
+    for idx, ch in enumerate(chunks, start=1):
+        ch_num = ch.get("invoiceNumber") or f"chunk-{idx}"
+        ch_pages = ch.get("pageNumbers") or []
+        print(f"[Pass 1] chunk {idx}/{len(chunks)} invoice={ch_num} pages={ch_pages}")
+        part = llm_pass1(ch["pages"], f"{filename}::{ch_num}", endpoint, model)
+        if not isinstance(part, list):
+            continue
+        for inv in part:
+            if not isinstance(inv, dict):
+                continue
+            inv_pages = inv.get("pageRanges")
+            if not isinstance(inv_pages, list) or not inv_pages:
+                inv["pageRanges"] = ch_pages
+            invoices.append(inv)
+    return invoices
 
 
 # ── Pass 2: post-processing ───────────────────────────────────────────────
@@ -533,8 +655,8 @@ def parse():
         if not pages:
             return api_error("No text extracted. PDF may be image-only.", status=422)
 
-        # Step 2: LLM pass 1
-        invoices = llm_pass1(pages, f.filename, endpoint, model)
+        # Step 2: LLM pass 1 (chunk by inferred invoice number for multi-invoice PDFs)
+        invoices = llm_pass1_chunked(pages, f.filename, endpoint, model)
 
         # Step 3: LLM pass 2 (post-processing)
         if pp_on:

@@ -69,6 +69,67 @@ def _h_get(rec: dict, *path: str) -> Any:
     return cur
 
 
+def _addon_from_raw(a: dict) -> dict:
+    return {
+        "addonSubType": _norm(
+            a.get("addonSubType")
+            or a.get("addonsubType")
+            or a.get("AddonSubType")
+            or a.get("subType")
+            or a.get("SubType")
+            or a.get("type")
+            or a.get("Type")
+            or a.get("name")
+            or a.get("Name")
+            or a.get("description")
+            or a.get("Description")
+        ),
+        "addonSubTypeId": _norm(
+            a.get("addonSubTypeId")
+            or a.get("addonsubTypeId")
+            or a.get("AddonSubTypeId")
+            or a.get("typeId")
+            or a.get("TypeId")
+            or a.get("subTypeId")
+            or a.get("SubTypeId")
+        ),
+        "amount": _norm(
+            a.get("amount")
+            or a.get("Amount")
+            or a.get("value")
+            or a.get("Value")
+            or a.get("tax")
+            or a.get("Tax")
+        ),
+    }
+
+
+def _normalize_addons(raw_addons: Any, *, footer: dict | None = None) -> list[dict]:
+    out: list[dict] = []
+    for a in (raw_addons or []):
+        if not isinstance(a, dict):
+            continue
+        n = _addon_from_raw(a)
+        if _is_empty(n.get("addonSubType")) and _is_empty(n.get("addonSubTypeId")) and _is_empty(n.get("amount")):
+            continue
+        out.append(n)
+
+    # Some sources provide tax as scalar footer fields (Tax/SalesTax) instead of Addons[].
+    if footer is not None:
+        tax_amount = _norm(
+            footer.get("Tax")
+            or footer.get("tax")
+            or footer.get("SalesTax")
+            or footer.get("salesTax")
+            or footer.get("TaxAmount")
+            or footer.get("taxAmount")
+        )
+        if tax_amount and not any(_norm(a.get("addonSubType")).lower() == "tax" for a in out):
+            out.append({"addonSubType": "Tax", "addonSubTypeId": "2", "amount": tax_amount})
+
+    return out
+
+
 def _to_invoice_record(raw: dict) -> dict:
     model = raw.get("InvoiceModel") or {}
     header = model.get("Header") or {}
@@ -98,15 +159,7 @@ def _to_invoice_record(raw: dict) -> dict:
         "Footer": {
             "Subtotal": _norm(footer.get("Subtotal")),
             "Total": _norm(footer.get("Total")),
-            "Addons": [
-                {
-                    "addonSubType": _norm(a.get("addonSubType") or a.get("addonsubType") or a.get("AddonSubType")),
-                    "addonSubTypeId": _norm(a.get("addonSubTypeId") or a.get("addonsubTypeId") or a.get("AddonSubTypeId")),
-                    "amount": _norm(a.get("amount")),
-                }
-                for a in (footer.get("Addons") or footer.get("addons") or [])
-                if isinstance(a, dict)
-            ],
+            "Addons": _normalize_addons(footer.get("Addons") or footer.get("addons") or [], footer=footer),
         },
         "LineItems": [
             {
@@ -118,15 +171,7 @@ def _to_invoice_record(raw: dict) -> dict:
                 "QtyShipped": _norm(li.get("QtyShipped")),
                 "Price": _norm(li.get("Price")),
                 "ExtendedPrice": _norm(li.get("ExtendedPrice")),
-                "Addons": [
-                    {
-                        "addonSubType": _norm(a.get("addonSubType") or a.get("addonsubType") or a.get("AddonSubType")),
-                        "addonSubTypeId": _norm(a.get("addonSubTypeId") or a.get("addonsubTypeId") or a.get("AddonSubTypeId")),
-                        "amount": _norm(a.get("amount")),
-                    }
-                    for a in (li.get("Addons") or li.get("addons") or [])
-                    if isinstance(a, dict)
-                ],
+                "Addons": _normalize_addons(li.get("Addons") or li.get("addons") or []),
             }
             for li in line_items
             if isinstance(li, dict)
@@ -145,7 +190,8 @@ def _addon_similarity(src_addon: dict, gt_addon: dict) -> float:
 def score_addons(src_addons: list[dict], gt_addons: list[dict], threshold: float = 0.5) -> dict:
     src = src_addons or []
     gt = gt_addons or []
-    if not src and not gt:
+    # Addon scoring is expected-driven: extras in result do not penalize.
+    if not gt:
         return {"score": 100.0, "matchedPoints": 0, "totalPoints": 0, "pairs": []}
 
     used_src: set[int] = set()
@@ -153,6 +199,56 @@ def score_addons(src_addons: list[dict], gt_addons: list[dict], threshold: float
     pairs: list[dict] = []
 
     for g in gt:
+        g_type = _norm(g.get("addonSubType"))
+        g_type_id = _norm(g.get("addonSubTypeId"))
+        g_amount = _norm(g.get("amount"))
+
+        # If expected addon has no type/id, treat this as an amount/presence match.
+        if _is_empty(g_type) and _is_empty(g_type_id):
+            best_idx = -1
+            for i, s in enumerate(src):
+                if i in used_src:
+                    continue
+                if is_equal(s.get("amount"), g_amount):
+                    best_idx = i
+                    break
+            if best_idx < 0:
+                for i, _s in enumerate(src):
+                    if i in used_src:
+                        continue
+                    best_idx = i
+                    break
+
+            if best_idx < 0:
+                pairs.append({
+                    "gtSubType": g_type,
+                    "gtTypeId": g_type_id,
+                    "gtAmount": g_amount,
+                    "srcSubType": None,
+                    "srcTypeId": None,
+                    "srcAmount": None,
+                    "subtypeMatch": False,
+                    "amountMatch": False,
+                })
+                continue
+
+            used_src.add(best_idx)
+            matched_points += 1
+            amount_match = is_equal(src[best_idx].get("amount"), g_amount)
+            if amount_match:
+                matched_points += 1
+            pairs.append({
+                "gtSubType": g_type,
+                "gtTypeId": g_type_id,
+                "gtAmount": g_amount,
+                "srcSubType": _norm(src[best_idx].get("addonSubType")),
+                "srcTypeId": _norm(src[best_idx].get("addonSubTypeId")),
+                "srcAmount": _norm(src[best_idx].get("amount")),
+                "subtypeMatch": True,
+                "amountMatch": amount_match,
+            })
+            continue
+
         best_idx = -1
         best_score = -1.0
         for i, s in enumerate(src):
@@ -165,8 +261,10 @@ def score_addons(src_addons: list[dict], gt_addons: list[dict], threshold: float
         if best_idx < 0 or best_score < threshold:
             pairs.append({
                 "gtSubType": _norm(g.get("addonSubType")),
+                "gtTypeId": _norm(g.get("addonSubTypeId")),
                 "gtAmount": _norm(g.get("amount")),
                 "srcSubType": None,
+                "srcTypeId": None,
                 "srcAmount": None,
                 "subtypeMatch": False,
                 "amountMatch": False,
@@ -179,14 +277,16 @@ def score_addons(src_addons: list[dict], gt_addons: list[dict], threshold: float
             matched_points += 1
         pairs.append({
             "gtSubType": _norm(g.get("addonSubType")),
+            "gtTypeId": _norm(g.get("addonSubTypeId")),
             "gtAmount": _norm(g.get("amount")),
             "srcSubType": _norm(src[best_idx].get("addonSubType")),
+            "srcTypeId": _norm(src[best_idx].get("addonSubTypeId")),
             "srcAmount": _norm(src[best_idx].get("amount")),
             "subtypeMatch": True,
             "amountMatch": amount_match,
         })
 
-    total_points = max(len(src), len(gt)) * 2
+    total_points = len(gt) * 2
     score = (matched_points / total_points) * 100 if total_points else 100.0
     return {"score": score, "matchedPoints": matched_points, "totalPoints": total_points, "pairs": pairs}
 
@@ -204,7 +304,8 @@ def _vendor_zip(rec: dict) -> str:
 def _line_map(rec: dict) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for li in rec.get("LineItems") or []:
-        key = _norm(li.get("LineNumber"))
+        # Pair by item number first; fall back to line number when item id is missing.
+        key = _norm(li.get("ItemId")) or _norm(li.get("LineNumber"))
         if key and key not in out:
             out[key] = li
     return out
@@ -295,11 +396,17 @@ def score_invoice(src_rec: dict | None, gt_rec: dict | None) -> dict:
     line_item_details: list[dict] = []
     if divisor > 0:
         total = 0.0
-        for ln in sorted(line_nums, key=lambda x: (len(x), x)):
+        for ln in sorted(line_nums):
+            src_li = src_map.get(ln)
+            gt_li = gt_map.get(ln)
             li_result = score_line_item(src_map.get(ln), gt_map.get(ln))
             total += li_result["score"]
             line_item_details.append({
-                "lineNumber": ln,
+                "pairKey": ln,
+                "lineNumber": _norm((src_li or {}).get("LineNumber") or (gt_li or {}).get("LineNumber")),
+                "itemId": _norm((src_li or {}).get("ItemId") or (gt_li or {}).get("ItemId")),
+                "srcLineNumber": _norm((src_li or {}).get("LineNumber")),
+                "gtLineNumber": _norm((gt_li or {}).get("LineNumber")),
                 "score": li_result["score"],
                 "fieldsScore": li_result["fieldsScore"],
                 "addonsScore": li_result["addonsScore"],

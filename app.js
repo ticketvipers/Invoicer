@@ -1,5 +1,5 @@
 // ── State ──────────────────────────────────────────────────────────────────
-const S = { files:[], pending:{}, activeId:null, activeTab:'json', activeInv:0, showPdf:true };
+const S = { files:[], pending:{}, activeId:null, activeTab:'json', activeInv:0, showPdf:true, pdfDock:'side' };
 
 // ── Server config bootstrap ───────────────────────────────────────────────
 function baseFromExtractUrl() {
@@ -106,8 +106,8 @@ async function loadExpected(files) {
     if (entry) {
       entry.expected = arr;
       if (entry.result) {
-        entry.diff = diffAll(entry.result, entry.expected);
         entry.accuracy = await calculateAccuracyServer(entry.result, entry.expected);
+        entry.diff = buildDiffFromAccuracy(entry.accuracy);
         entry.status = entry.diff.match ? 'pass':'fail';
         if (S.activeId === entry.id) S.activeTab = 'compare';
       }
@@ -152,7 +152,7 @@ function selectFile(id) { S.activeId=id; S.activeInv=0; renderQueue(); renderCon
 
 // ── Parse ──────────────────────────────────────────────────────────────────
 async function parseAll() {
-  const queued = S.files.filter(x => x.status==='queued');
+  const queued = S.files.filter(x => x.status !== 'parsing');
   if (!queued.length) { toast('Nothing to parse','info'); return; }
   document.getElementById('parseBtn').disabled = true;
   if (!S.activeId) S.activeId = queued[0].id;
@@ -192,8 +192,8 @@ async function parseAll() {
       e.rawPages  = null; // raw pages not returned from /parse
 
       if (e.expected) {
-        e.diff = diffAll(e.result, e.expected);
         e.accuracy = await calculateAccuracyServer(e.result, e.expected);
+        e.diff = buildDiffFromAccuracy(e.accuracy);
         e.status = e.diff.match ? 'pass' : 'fail';
         if (S.activeId === e.id) S.activeTab = 'compare';
       }
@@ -561,6 +561,144 @@ function diffAll(result, expected) {
   return {match: issues.length === 0, issues, improvements};
 }
 
+function buildDiffFromAccuracy(accuracy) {
+  const issues = [];
+  const improvements = [];
+  if (!accuracy || !Array.isArray(accuracy.perInvoice)) {
+    return { match: true, issues, improvements };
+  }
+
+  const addonKey = (p, idx) => {
+    return norm(p?.gtTypeId) || norm(p?.srcTypeId) || norm(p?.gtSubType) || norm(p?.srcSubType) || `idx:${idx + 1}`;
+  };
+
+  const hasAddonData = (subType, typeId, amount) => {
+    return !isEmptyVal(subType) || !isEmptyVal(typeId) || !isEmptyVal(amount);
+  };
+
+  accuracy.perInvoice.forEach((inv) => {
+    const invPrefix = `[${inv.rIndex}]`;
+    const d = inv?.details || {};
+
+    (d.headerFooterFields || []).forEach((fd) => {
+      if (fd?.pass) return;
+      const miss = isEmptyVal(fd?.src) && !isEmptyVal(fd?.gt);
+      issues.push({
+        path: `${invPrefix}.HeaderFooter.${fd?.field || 'unknown'}`,
+        type: miss ? 'miss' : 'mismatch',
+        got: fd?.src ?? null,
+        exp: fd?.gt ?? null,
+      });
+    });
+
+    (d.footerAddons?.pairs || []).forEach((p, idx) => {
+      const key = addonKey(p, idx);
+      const expectedHasAddon = hasAddonData(p?.gtSubType, p?.gtTypeId, p?.gtAmount);
+      const resultHasAddon = hasAddonData(p?.srcSubType, p?.srcTypeId, p?.srcAmount);
+      if (!p?.subtypeMatch) {
+        if (!expectedHasAddon) return;
+        const gotType = norm(p?.srcTypeId) || norm(p?.srcSubType);
+        const expType = norm(p?.gtTypeId) || norm(p?.gtSubType);
+        if (!isEmptyVal(expType)) {
+          const miss = isEmptyVal(gotType) && !isEmptyVal(expType);
+          issues.push({
+            path: `${invPrefix}.Footer.Addons[${key}].subtype`,
+            type: miss ? 'miss' : 'mismatch',
+            got: gotType || null,
+            exp: expType || null,
+          });
+          return;
+        }
+
+        const miss = !resultHasAddon;
+        issues.push({
+          path: `${invPrefix}.Footer.Addons[${key}].amount`,
+          type: miss ? 'miss' : 'mismatch',
+          got: p?.srcAmount ?? null,
+          exp: p?.gtAmount ?? null,
+        });
+      }
+      if (p?.subtypeMatch && !p?.amountMatch) {
+        if (isEmptyVal(p?.gtAmount)) return;
+        const miss = isEmptyVal(p?.srcAmount) && !isEmptyVal(p?.gtAmount);
+        issues.push({
+          path: `${invPrefix}.Footer.Addons[${key}].amount`,
+          type: miss ? 'miss' : 'mismatch',
+          got: p?.srcAmount ?? null,
+          exp: p?.gtAmount ?? null,
+        });
+      }
+    });
+
+    (d.lineItems || []).forEach((li, liIdx) => {
+      const key = norm(li?.itemId) || norm(li?.pairKey) || norm(li?.lineNumber) || String(liIdx + 1);
+      const liPrefix = `${invPrefix}.LineItems[${key}]`;
+      const fds = li?.fieldDetails || [];
+
+      if (!fds.length && (li?.score || 0) === 0) {
+        issues.push({
+          path: liPrefix,
+          type: 'miss',
+          got: null,
+          exp: 'line item',
+        });
+      }
+
+      fds.forEach((fd) => {
+        if (fd?.pass) return;
+        const miss = isEmptyVal(fd?.src) && !isEmptyVal(fd?.gt);
+        issues.push({
+          path: `${liPrefix}.${fd?.field || 'unknown'}`,
+          type: miss ? 'miss' : 'mismatch',
+          got: fd?.src ?? null,
+          exp: fd?.gt ?? null,
+        });
+      });
+
+      (li?.addonDetails?.pairs || []).forEach((p, idx) => {
+        const aKey = addonKey(p, idx);
+        const expectedHasAddon = hasAddonData(p?.gtSubType, p?.gtTypeId, p?.gtAmount);
+        const resultHasAddon = hasAddonData(p?.srcSubType, p?.srcTypeId, p?.srcAmount);
+        if (!p?.subtypeMatch) {
+          if (!expectedHasAddon) return;
+          const gotType = norm(p?.srcTypeId) || norm(p?.srcSubType);
+          const expType = norm(p?.gtTypeId) || norm(p?.gtSubType);
+          if (!isEmptyVal(expType)) {
+            const miss = isEmptyVal(gotType) && !isEmptyVal(expType);
+            issues.push({
+              path: `${liPrefix}.Addons[${aKey}].subtype`,
+              type: miss ? 'miss' : 'mismatch',
+              got: gotType || null,
+              exp: expType || null,
+            });
+            return;
+          }
+
+          const miss = !resultHasAddon;
+          issues.push({
+            path: `${liPrefix}.Addons[${aKey}].amount`,
+            type: miss ? 'miss' : 'mismatch',
+            got: p?.srcAmount ?? null,
+            exp: p?.gtAmount ?? null,
+          });
+        }
+        if (p?.subtypeMatch && !p?.amountMatch) {
+          if (isEmptyVal(p?.gtAmount)) return;
+          const miss = isEmptyVal(p?.srcAmount) && !isEmptyVal(p?.gtAmount);
+          issues.push({
+            path: `${liPrefix}.Addons[${aKey}].amount`,
+            type: miss ? 'miss' : 'mismatch',
+            got: p?.srcAmount ?? null,
+            exp: p?.gtAmount ?? null,
+          });
+        }
+      });
+    });
+  });
+
+  return { match: issues.length === 0, issues, improvements };
+}
+
 function normalizeText(v) {
   return norm(v).toLowerCase();
 }
@@ -636,13 +774,67 @@ function addonSubtypeSimilarity(srcAddon, gtAddon) {
 function scoreAddons(srcAddons, gtAddons, subtypeThreshold = 0.5) {
   const src = Array.isArray(srcAddons) ? srcAddons : [];
   const gt = Array.isArray(gtAddons) ? gtAddons : [];
-  if (!src.length && !gt.length) return {score: 100, matchedPoints: 0, totalPoints: 0, pairs: []};
+  // Addon scoring is expected-driven: extras in result do not penalize.
+  if (!gt.length) return {score: 100, matchedPoints: 0, totalPoints: 0, pairs: []};
 
   const used = new Set();
   let matchedPoints = 0;
   const pairs = [];
   for (let gi = 0; gi < gt.length; gi++) {
     const g = gt[gi];
+    const gType = norm(g?.addonSubType);
+    const gTypeId = norm(g?.addonSubTypeId);
+    const gAmount = norm(g?.amount);
+
+    // If expected addon has no type/id, treat this as an amount/presence match.
+    if (isEmptyVal(gType) && isEmptyVal(gTypeId)) {
+      let bestIdx = -1;
+      for (let si = 0; si < src.length; si++) {
+        if (used.has(si)) continue;
+        if (isEqual(src[si]?.amount, gAmount)) {
+          bestIdx = si;
+          break;
+        }
+      }
+      if (bestIdx === -1) {
+        for (let si = 0; si < src.length; si++) {
+          if (used.has(si)) continue;
+          bestIdx = si;
+          break;
+        }
+      }
+
+      if (bestIdx === -1) {
+        pairs.push({
+          gtSubType: gType,
+          gtTypeId: gTypeId,
+          gtAmount: gAmount,
+          srcSubType: null,
+          srcTypeId: null,
+          srcAmount: null,
+          subtypeMatch: false,
+          amountMatch: false,
+        });
+        continue;
+      }
+
+      used.add(bestIdx);
+      matchedPoints += 1;
+      const amountMatch = isEqual(src[bestIdx]?.amount, gAmount);
+      if (amountMatch) matchedPoints += 1;
+      pairs.push({
+        gtSubType: gType,
+        gtTypeId: gTypeId,
+        gtAmount: gAmount,
+        srcSubType: norm(src[bestIdx]?.addonSubType),
+        srcTypeId: norm(src[bestIdx]?.addonSubTypeId),
+        srcAmount: norm(src[bestIdx]?.amount),
+        subtypeMatch: true,
+        amountMatch,
+      });
+      continue;
+    }
+
     let bestIdx = -1;
     let bestScore = -1;
     for (let si = 0; si < src.length; si++) {
@@ -655,9 +847,11 @@ function scoreAddons(srcAddons, gtAddons, subtypeThreshold = 0.5) {
     }
     if (bestIdx === -1 || bestScore < subtypeThreshold) {
       pairs.push({
-        gtSubType: norm(g?.addonSubType),
-        gtAmount: norm(g?.amount),
+        gtSubType: gType,
+        gtTypeId: gTypeId,
+        gtAmount: gAmount,
         srcSubType: null,
+        srcTypeId: null,
         srcAmount: null,
         subtypeMatch: false,
         amountMatch: false,
@@ -669,16 +863,18 @@ function scoreAddons(srcAddons, gtAddons, subtypeThreshold = 0.5) {
     const amountMatch = isEqual(src[bestIdx]?.amount, g?.amount);
     if (amountMatch) matchedPoints += 1;
     pairs.push({
-      gtSubType: norm(g?.addonSubType),
-      gtAmount: norm(g?.amount),
+      gtSubType: gType,
+      gtTypeId: gTypeId,
+      gtAmount: gAmount,
       srcSubType: norm(src[bestIdx]?.addonSubType),
+      srcTypeId: norm(src[bestIdx]?.addonSubTypeId),
       srcAmount: norm(src[bestIdx]?.amount),
       subtypeMatch: true,
       amountMatch,
     });
   }
 
-  const totalPoints = Math.max(src.length, gt.length) * 2;
+  const totalPoints = gt.length * 2;
   const score = totalPoints ? (matchedPoints / totalPoints) * 100 : 100;
   return {score, matchedPoints, totalPoints, pairs};
 }
@@ -694,7 +890,7 @@ function vendorZip(rec) {
 function toLineMapByLineNumber(rec) {
   const map = {};
   (rec?.LineItems || []).forEach(li => {
-    const k = norm(li?.LineNumber);
+    const k = norm(li?.ItemId) || norm(li?.LineNumber);
     if (k && !map[k]) map[k] = li;
   });
   return map;
@@ -771,9 +967,15 @@ function scoreInvoice(srcRec, gtRec) {
   let lineItemsAverage = 100;
   if (lineItemCountDivisor > 0) {
     const total = lineNums.reduce((sum, ln) => {
-      const scored = scoreLineItem(srcByLine[ln], gtByLine[ln]);
+      const srcLi = srcByLine[ln];
+      const gtLi = gtByLine[ln];
+      const scored = scoreLineItem(srcLi, gtLi);
       lineItems.push({
-        lineNumber: ln,
+        pairKey: ln,
+        lineNumber: norm(srcLi?.LineNumber || gtLi?.LineNumber),
+        itemId: norm(srcLi?.ItemId || gtLi?.ItemId),
+        srcLineNumber: norm(srcLi?.LineNumber),
+        gtLineNumber: norm(gtLi?.LineNumber),
         score: scored.score,
         fieldsScore: scored.fieldsScore,
         addonsScore: scored.addonsScore,
@@ -899,12 +1101,33 @@ function setTab(t) {
   renderContent();
 }
 function setInv(i) { S.activeInv=i; renderContent(); }
-function togglePdf() { S.showPdf=!S.showPdf; renderContent(); }
+function togglePdf() {
+  S.showPdf = !S.showPdf;
+  const mainEl = document.querySelector('.main');
+  const pdfSec = document.getElementById('pdfSection');
+  if (pdfSec) {
+    if (S.showPdf) {
+      mainEl.classList.add('show-pdf');
+      pdfSec.style.display = 'flex';
+    } else {
+      mainEl.classList.remove('show-pdf');
+      pdfSec.style.display = 'none';
+    }
+  }
+}
+function togglePdfDock() { S.pdfDock = (S.pdfDock === 'bottom' ? 'side' : 'bottom'); renderContent(); }
+
+function hidePdfStatic() {
+  const mainEl = document.querySelector('.main');
+  const pdfSec = document.getElementById('pdfSection');
+  if (pdfSec) { mainEl.classList.remove('show-pdf'); pdfSec.style.display = 'none'; }
+}
 
 function renderContent() {
   const content=document.getElementById('content'), tbTitle=document.getElementById('tbTitle'), tabBar=document.getElementById('tabBar');
-  if (S.activeId==='__summary__') return;
+  if (S.activeId==='__summary__') { hidePdfStatic(); return; }
   if (!S.activeId) {
+    hidePdfStatic();
     tbTitle.innerHTML='<span>Load folders and click Parse All</span>'; tabBar.style.display='none';
     content.innerHTML=`<div class="empty-state"><div class="es-icon">📂</div><h2>Ready</h2><p>1. Select PDFs folder<br>2. Select ExpectedResults folder<br>3. Click ▶ Parse All</p></div>`;
     return;
@@ -916,11 +1139,13 @@ function renderContent() {
   if (rawTab) rawTab.style.display=(e.ppApplied&&e.rawResult)?'':'none';
 
   if (e.status==='parsing') {
+    hidePdfStatic();
     content.innerHTML=`<div class="parsing-bar"><div class="spinner"></div>Parsing ${e.name}…</div>
       <div class="empty-state" style="flex:1"><div class="es-icon" style="animation:spin 1.2s linear infinite">⚙️</div><h2>Parsing…</h2></div>`;
     return;
   }
   if (e.status==='error') {
+    hidePdfStatic();
     content.innerHTML=`<div class="empty-state" style="padding:24px;align-items:flex-start">
       <div class="es-icon" style="align-self:center">⚠️</div>
       <h2 style="align-self:center;margin-bottom:10px">Error</h2>
@@ -932,6 +1157,7 @@ function renderContent() {
     return;
   }
   if (!e.result) {
+    hidePdfStatic();
     content.innerHTML=`<div class="empty-state"><div class="es-icon">📄</div><h2>Not parsed yet</h2><p>Click ▶ Parse All</p></div>`;
     return;
   }
@@ -971,19 +1197,29 @@ function renderContent() {
   // ── PDF side panel ──────────────────────────────────────────────────────
   const pdfUrl = e._pdfUrl || (e._pdfUrl = URL.createObjectURL(e.file));
   const showPdf = S.showPdf !== false; // default on
-  pane.innerHTML = `
-    ${showPdf ? `<div id="pdfPanel" style="width:50%;min-width:320px;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;align-items:stretch">
-      <div style="padding:4px 8px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-        <span style="font-size:9px;font-family:var(--mono);color:var(--text2);text-transform:uppercase;letter-spacing:.08em">PDF</span>
-        <button onclick="togglePdf()" style="font-size:9px;font-family:var(--mono);background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:4px;padding:2px 7px;cursor:pointer">hide</button>
-      </div>
-      <div style="flex:1;overflow:auto;display:flex;flex-direction:column;align-items:stretch">
-        <embed src="${pdfUrl}" type="application/pdf" style="width:100%;height:100%;min-height:100%;display:block;flex-shrink:0">
-      </div>
-    </div>` : `<div style="display:flex;flex-direction:column;border-right:1px solid var(--border);flex-shrink:0">
-      <button onclick="togglePdf()" style="writing-mode:vertical-rl;font-size:9px;font-family:var(--mono);background:transparent;border:none;color:var(--text2);padding:10px 6px;cursor:pointer;letter-spacing:.08em">▶ PDF</button>
-    </div>`}
-    <div id="fieldsPanel" style="flex:1;overflow:hidden;display:flex;flex-direction:column"></div>`;
+
+  // Setting the dedicated PDF column in index.html instead of dynamically injecting it into mainPane
+  const pdfPanel = document.getElementById('pdfSection');
+  const mainEl = document.querySelector('.main');
+  if (pdfPanel) {
+    if (showPdf) {
+      mainEl.classList.add('show-pdf');
+      pdfPanel.style.display = 'flex';
+      // Only swap embed if URL has changed to prevent reload flickering
+      const existingEmbed = pdfPanel.querySelector('embed');
+      if (!existingEmbed || existingEmbed.src !== pdfUrl) {
+        // Keep standard native viewer UI since they expect standard toolbars!
+        pdfPanel.querySelector('#pdfEmbedContainer').innerHTML = `<embed src="${pdfUrl}" type="application/pdf" style="width:100%;height:100%;min-height:100%;display:block;flex-shrink:0;">`;
+      }
+    } else {
+      mainEl.classList.remove('show-pdf');
+      pdfPanel.style.display = 'none';
+    }
+  }
+
+  // Content for mainPane
+  pane.style.flexDirection = 'row';
+  pane.innerHTML = `<div id="fieldsPanel" style="flex:1;overflow:auto;display:flex;flex-direction:column;min-height:0"></div>`;
 
   const fieldsPanelEl = document.getElementById('fieldsPanel');
 
@@ -1163,10 +1399,12 @@ function buildAccuracyDetails(invAcc) {
       const stCol = p.subtypeMatch ? 'var(--accent)' : 'var(--danger)';
       const amIcon = p.amountMatch ? '✓' : (p.subtypeMatch ? '✗' : '—');
       const amCol  = p.amountMatch ? 'var(--accent)' : (p.subtypeMatch ? 'var(--danger)' : 'var(--muted)');
+      const srcType = p.srcSubType || (p.srcTypeId ? `[id:${p.srcTypeId}]` : '');
+      const gtType  = p.gtSubType  || (p.gtTypeId  ? `[id:${p.gtTypeId}]` : '');
       return `<tr>
         <td style="padding:2px 4px;color:${stCol};text-align:center;font-weight:600">${p.subtypeMatch?'✓':'✗'}</td>
-        <td style="padding:2px 8px;color:var(--text);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.srcSubType||''}">${p.srcSubType||'<em style="opacity:.4">—</em>'}</td>
-        <td style="padding:2px 8px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.gtSubType||''}">${p.gtSubType||'<em style="opacity:.4">—</em>'}</td>
+        <td style="padding:2px 8px;color:var(--text);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${srcType||''}">${srcType||'<em style="opacity:.4">—</em>'}</td>
+        <td style="padding:2px 8px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${gtType||''}">${gtType||'<em style="opacity:.4">—</em>'}</td>
         <td style="padding:2px 4px;color:${amCol};text-align:center;font-weight:600">${amIcon}</td>
         <td style="padding:2px 8px;color:var(--text)">${p.srcAmount||'<em style="opacity:.4">—</em>'}</td>
         <td style="padding:2px 8px;color:var(--text2)">${p.gtAmount||'<em style="opacity:.4">—</em>'}</td>
@@ -1212,17 +1450,23 @@ function buildAccuracyDetails(invAcc) {
         const stCol = p.subtypeMatch ? 'var(--accent)' : 'var(--danger)';
         const amIcon = p.amountMatch ? '✓' : (p.subtypeMatch ? '✗' : '—');
         const amCol  = p.amountMatch ? 'var(--accent)' : (p.subtypeMatch ? 'var(--danger)' : 'var(--muted)');
+        const srcType = p.srcSubType || (p.srcTypeId ? `[id:${p.srcTypeId}]` : '');
+        const gtType  = p.gtSubType  || (p.gtTypeId  ? `[id:${p.gtTypeId}]` : '');
         return `<tr style="border-top:1px dashed var(--border)">
           <td style="padding:2px 8px 2px 0;color:var(--muted);white-space:nowrap">Addon</td>
-          <td style="padding:2px 8px;color:var(--text)"><span title="${p.srcSubType||''}" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">${p.srcSubType||'—'}</span> <span style="color:${stCol}">${p.subtypeMatch?'✓':'✗'}</span> | <span style="color:var(--text)">${p.srcAmount||'—'}</span> <span style="color:${amCol}">${amIcon}</span></td>
-          <td style="padding:2px 8px;color:var(--text2)"><span title="${p.gtSubType||''}">${p.gtSubType||'—'}</span> | ${p.gtAmount||'—'}</td>
+          <td style="padding:2px 8px;color:var(--text)"><span title="${srcType||''}" style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">${srcType||'—'}</span> <span style="color:${stCol}">${p.subtypeMatch?'✓':'✗'}</span> | <span style="color:var(--text)">${p.srcAmount||'—'}</span> <span style="color:${amCol}">${amIcon}</span></td>
+          <td style="padding:2px 8px;color:var(--text2)"><span title="${gtType||''}">${gtType||'—'}</span> | ${p.gtAmount||'—'}</td>
           <td></td>
         </tr>`;
       }).join('');
     }
+    const lineLabel = li.itemId ? `Item ${li.itemId}` : `Line ${li.lineNumber || li.pairKey || '—'}`;
+    const lineMeta = (li.srcLineNumber || li.gtLineNumber)
+      ? ` · Ln src:${li.srcLineNumber || '—'} / gt:${li.gtLineNumber || '—'}`
+      : '';
     return `<details style="margin:2px 0;border:1px solid var(--border);border-radius:3px">
       <summary style="padding:3px 8px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;background:var(--surface);font-family:var(--mono);font-size:9px;user-select:none">
-        <span style="color:var(--muted)">Line ${li.lineNumber}</span>
+        <span style="color:var(--muted)">${lineLabel}${lineMeta}</span>
         <span style="color:${liCol};font-weight:600">${li.score.toFixed(1)}%</span>
         <span style="color:var(--muted)">Fields: ${li.fieldsScore.toFixed(0)}% · Addons: ${li.addonsScore.toFixed(0)}%</span>
       </summary>
