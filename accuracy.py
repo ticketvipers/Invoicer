@@ -388,8 +388,22 @@ def score_invoice(src_rec: dict | None, gt_rec: dict | None) -> dict:
     footer_addons_score = footer_addons_result["score"]
     invoice_field_match = header_footer_score * 0.8 + footer_addons_score * 0.2
 
-    src_map = _line_map(src_rec)
-    gt_map = _line_map(gt_rec)
+    # Use positional (1-based) keying if either side has duplicate item IDs.
+    def _has_dup_ids(items: list) -> bool:
+        ids = [_norm(li.get("ItemId")) for li in items if isinstance(li, dict)]
+        non_empty = [i for i in ids if i]
+        return bool(non_empty) and len(non_empty) != len(set(non_empty))
+
+    src_line_items = [li for li in (src_rec.get("LineItems") or []) if isinstance(li, dict)]
+    gt_line_items  = [li for li in (gt_rec.get("LineItems") or []) if isinstance(li, dict)]
+    use_positional = _has_dup_ids(src_line_items) or _has_dup_ids(gt_line_items)
+
+    if use_positional:
+        src_map = {str(i + 1): li for i, li in enumerate(src_line_items)}
+        gt_map  = {str(i + 1): li for i, li in enumerate(gt_line_items)}
+    else:
+        src_map = _line_map(src_rec)
+        gt_map = _line_map(gt_rec)
     line_nums = set(src_map.keys()) | set(gt_map.keys())
     divisor = max(src_line_count, gt_line_count)
 

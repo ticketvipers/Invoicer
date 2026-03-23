@@ -182,6 +182,22 @@ header{position:relative;z-index:10;padding:14px 24px;border-bottom:1px solid va
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+.pdf-column {
+  display:none; flex-direction:column; border-right:1px solid var(--border);
+  overflow:hidden; background:var(--surface); position:relative;
+}
+.floating-pdf {
+  position:absolute;top:0;left:0;width:100%;height:auto;aspect-ratio:8.5/11;
+  background:var(--surface);display:flex;flex-direction:column;
+  z-index:100;overflow:hidden;
+}
+.pdf-drag-handle {
+  padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;flex-shrink:0;
+  cursor:grab;user-select:none;
+}
+.pdf-drag-handle:active{cursor:grabbing;}
 </style>
 </head>
 <body>
@@ -218,7 +234,7 @@ header{position:relative;z-index:10;padding:14px 24px;border-bottom:1px solid va
       <span>Queue &nbsp;<span id="qCount" style="color:var(--muted);font-weight:400">0</span></span>
       <span id="matchInfo" style="color:var(--accent);font-size:9px"></span>
     </div>
-    <div class="file-queue" id="fileQueue" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+    <div class="file-queue" id="fileQueue" ondragenter="onDragOver(event)" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
       <p style="text-align:center;color:var(--muted);font-size:10px;font-family:var(--mono);padding:20px 8px;line-height:1.7">Load folders above<br>or drag &amp; drop files here</p>
     </div>
     <div class="actions">
@@ -236,14 +252,17 @@ header{position:relative;z-index:10;padding:14px 24px;border-bottom:1px solid va
     </div>
   </div>
   <!-- PDF SECTION -->
-  <div class="center" id="pdfSection" style="display:none; flex-direction:column; border-right:1px solid var(--border); overflow:hidden; background:var(--surface);">
-    <div style="padding:4px 8px; border-bottom:1px solid var(--border); background:var(--surface); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
-      <span style="font-size:9px; font-family:var(--mono); color:var(--text2); text-transform:uppercase; letter-spacing:.08em;">PDF Document</span>
-      <div style="display:flex; gap:6px;">
-        <button onclick="togglePdf()" style="font-size:9px; font-family:var(--mono); background:transparent; border:1px solid var(--border2); color:var(--text2); border-radius:4px; padding:2px 7px; cursor:pointer;" title="Hide PDF">hide</button>
+  <div id="pdfSection" class="pdf-column" style="display:none;">
+    <div id="pdfWidget" class="floating-pdf">
+      <div id="pdfHeader" class="pdf-drag-handle">
+        <span style="font-size:12px; font-weight:700;">PDF Document (Drag Me)</span>
+        <div style="display:flex; gap:6px;">
+          <button onclick="resetPdf()" style="font-size:10px; font-family:var(--mono); background:transparent; border:1px solid var(--border2); color:var(--text2); border-radius:4px; padding:4px 8px; cursor:pointer; transition:all .15s;" onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--text2)'" onmouseout="this.style.color='var(--text2)';this.style.borderColor='var(--border2)'" title="Reset PDF to top">Reset</button>
+          <button onclick="togglePdf()" style="font-size:10px; font-family:var(--mono); background:transparent; border:1px solid var(--border2); color:var(--text2); border-radius:4px; padding:4px 8px; cursor:pointer; transition:all .15s;" onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--text2)'" onmouseout="this.style.color='var(--text2)';this.style.borderColor='var(--border2)'" title="Hide PDF">Hide</button>
+        </div>
       </div>
-    </div>
-    <div id="pdfEmbedContainer" style="flex:1; overflow:auto; display:flex; flex-direction:column; align-items:stretch;">
+      <div id="pdfEmbedContainer" style="flex:1; overflow:hidden; display:flex; flex-direction:column; align-items:stretch;">
+      </div>
     </div>
   </div>
   <!-- RIGHT -->
@@ -258,6 +277,7 @@ header{position:relative;z-index:10;padding:14px 24px;border-bottom:1px solid va
         <button class="tab"        data-tab="pdftext" onclick="setTab('pdftext')">PDF Text</button>
       </div>
       <div style="display:flex;gap:5px">
+        <button class="icon-btn" title="Toggle PDF Viewer" onclick="togglePdf()">📄</button>
         <button class="icon-btn" title="Copy JSON" onclick="copyJSON()">⎘</button>
         <button class="icon-btn" title="Download" onclick="downloadJSON()">↓</button>
       </div>

@@ -65,10 +65,22 @@ document.getElementById('expInput').addEventListener('change', e => {
     document.getElementById('expRow').classList.add('loaded');
   });
 });
-function onDragOver(e) { e.preventDefault(); document.getElementById('fileQueue').style.outline = '2px dashed var(--accent)'; }
-function onDragLeave() { document.getElementById('fileQueue').style.outline = ''; }
+function onDragOver(e) { 
+  e.preventDefault(); 
+  e.stopPropagation();
+  document.getElementById('fileQueue').style.outline = '2px dashed var(--accent)'; 
+}
+function onDragLeave(e) { 
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.target.id === 'fileQueue') {
+    document.getElementById('fileQueue').style.outline = ''; 
+  }
+}
 function onDrop(e) {
-  e.preventDefault(); document.getElementById('fileQueue').style.outline = '';
+  e.preventDefault(); 
+  e.stopPropagation();
+  document.getElementById('fileQueue').style.outline = '';
   const all = [...e.dataTransfer.files];
   addPDFs(all.filter(f => f.name.match(/\.pdf$/i)));
   loadExpected(all.filter(f => f.name.match(/\.json$/i)));
@@ -959,8 +971,19 @@ function scoreInvoice(srcRec, gtRec) {
   const footerAddonsScore = footerAddons.score;
   const invoiceFieldMatch = headerFooterFieldsScore * 0.8 + footerAddonsScore * 0.2;
 
-  const srcByLine = toLineMapByLineNumber(srcRec);
-  const gtByLine = toLineMapByLineNumber(gtRec);
+  function hasDupIds(items) {
+    const ids = (items || []).map(li => norm(li?.ItemId)).filter(Boolean);
+    return ids.length > 0 && new Set(ids).size !== ids.length;
+  }
+  const usePositional = hasDupIds(srcRec.LineItems) || hasDupIds(gtRec.LineItems);
+  let srcByLine, gtByLine;
+  if (usePositional) {
+    srcByLine = {}; (srcRec.LineItems || []).forEach((li, i) => { srcByLine[String(i + 1)] = li; });
+    gtByLine  = {}; (gtRec.LineItems  || []).forEach((li, i) => { gtByLine[String(i + 1)]  = li; });
+  } else {
+    srcByLine = toLineMapByLineNumber(srcRec);
+    gtByLine  = toLineMapByLineNumber(gtRec);
+  }
   const lineNums = [...new Set([...Object.keys(srcByLine), ...Object.keys(gtByLine)])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const lineItemCountDivisor = Math.max(srcRec.LineItems.length, gtRec.LineItems.length);
   const lineItems = [];
@@ -1120,7 +1143,17 @@ function togglePdfDock() { S.pdfDock = (S.pdfDock === 'bottom' ? 'side' : 'botto
 function hidePdfStatic() {
   const mainEl = document.querySelector('.main');
   const pdfSec = document.getElementById('pdfSection');
-  if (pdfSec) { mainEl.classList.remove('show-pdf'); pdfSec.style.display = 'none'; }
+  if (pdfSec) {
+    mainEl.classList.remove('show-pdf');
+    pdfSec.style.display = 'none';
+  }
+}
+
+function resetPdf() {
+  const pdfWidget = document.getElementById('pdfWidget');
+  if (pdfWidget) {
+    pdfWidget.style.top = '0px';
+  }
 }
 
 function renderContent() {
@@ -1208,7 +1241,6 @@ function renderContent() {
       // Only swap embed if URL has changed to prevent reload flickering
       const existingEmbed = pdfPanel.querySelector('embed');
       if (!existingEmbed || existingEmbed.src !== pdfUrl) {
-        // Keep standard native viewer UI since they expect standard toolbars!
         pdfPanel.querySelector('#pdfEmbedContainer').innerHTML = `<embed src="${pdfUrl}" type="application/pdf" style="width:100%;height:100%;min-height:100%;display:block;flex-shrink:0;">`;
       }
     } else {
@@ -1659,3 +1691,52 @@ function toast(msg,type='info') {
   t.addEventListener('change',update); update();
   loadServerConfig();
 })();
+
+// ── Drag Logic for PDF ─────────────────────────────────────────────────────
+function makeDraggable(el, handleId, boundsId) {
+  const handle = document.getElementById(handleId);
+  const bounds = document.getElementById(boundsId);
+  if (!handle || !el) return;
+  let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+  handle.onmousedown = dragMouseDown;
+
+  function dragMouseDown(e) {
+    if (e.target.tagName === 'BUTTON') return;
+    e.preventDefault();
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+    document.onmouseup = closeDragElement;
+    document.onmousemove = elementDrag;
+    const embed = el.querySelector('embed');
+    if (embed) embed.style.pointerEvents = 'none';
+  }
+
+  function elementDrag(e) {
+    e.preventDefault();
+    pos2 = pos4 - e.clientY;
+    pos4 = e.clientY;
+
+    let newTop = el.offsetTop - pos2;
+    if (bounds) {
+      const bRect = bounds.getBoundingClientRect();
+      if (newTop < 0) newTop = 0;
+      if (newTop > bRect.height - 40) newTop = bRect.height - 40;
+    }
+
+    el.style.top = newTop + "px";
+    el.style.left = "0px";
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+  }
+
+  function closeDragElement() {
+    document.onmouseup = null;
+    document.onmousemove = null;
+    const embed = el.querySelector('embed');
+    if (embed) embed.style.pointerEvents = 'auto';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  makeDraggable(document.getElementById('pdfWidget'), 'pdfHeader', 'pdfSection');
+});
