@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://invoicer.local/schemas/invoice-batch.schema.json",
+  "title": "Invoice Batch",
+  "description": "Top-level payload expected by Invoicer: an array of invoice records.",
+  "type": "array",
+  "items": { "$ref": "#/$defs/InvoiceRecord" },
+  "$defs": {
+    "Addon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["addonSubType", "addonSubTypeId", "amount"],
+      "properties": {
+        "addonSubType": { "type": "string" },
+        "addonSubTypeId": { "type": "string" },
+        "amount": { "type": "string" }
+      }
+    },
+    "Address": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Name",
+        "Address1",
+        "Address2",
+        "AddressOther",
+        "City",
+        "State",
+        "Zip",
+        "Phone",
+        "Fax"
+      ],
+      "properties": {
+        "Name": { "type": "string" },
+        "Address1": { "type": "string" },
+        "Address2": { "type": "string" },
+        "AddressOther": { "type": "string" },
+        "City": { "type": "string" },
+        "State": { "type": "string" },
+        "Zip": { "type": "string" },
+        "Phone": { "type": "string" },
+        "Fax": { "type": "string" }
+      }
+    },
+    "InvoiceLineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "LineNumber",
+        "ItemName",
+        "ItemId",
+        "Unit",
+        "CatchWeight",
+        "QtyOrdered",
+        "QtyShipped",
+        "QtyBackOrdered",
+        "Price",
+        "ExtendedPrice",
+        "Addons"
+      ],
+      "properties": {
+        "LineNumber": { "type": "string" },
+        "ItemName": { "type": "string" },
+        "ItemId": { "type": "string" },
+        "Unit": { "type": "string" },
+        "CatchWeight": { "type": "string" },
+        "QtyOrdered": { "type": "string" },
+        "QtyShipped": { "type": "string" },
+        "QtyBackOrdered": { "type": "string" },
+        "Price": { "type": "string" },
+        "ExtendedPrice": { "type": "string" },
+        "Addons": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Addon" }
+        }
+      }
+    },
+    "InvoiceHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "InvoiceNumber",
+        "InvoiceDate",
+        "OrderNumber",
+        "OrderDate",
+        "Salesperson",
+        "CustomerNumber",
+        "CustomerPurchaseOrder",
+        "VendorAddress",
+        "BillToAddress",
+        "ShipToAddress",
+        "VendorName",
+        "ShipMethod",
+        "Terms"
+      ],
+      "properties": {
+        "InvoiceNumber": { "type": "string" },
+        "InvoiceDate": { "type": "string" },
+        "OrderNumber": { "type": "string" },
+        "OrderDate": { "type": "string" },
+        "Salesperson": { "type": "string" },
+        "CustomerNumber": { "type": "string" },
+        "CustomerPurchaseOrder": { "type": "string" },
+        "VendorAddress": { "$ref": "#/$defs/Address" },
+        "BillToAddress": { "$ref": "#/$defs/Address" },
+        "ShipToAddress": { "$ref": "#/$defs/Address" },
+        "VendorName": { "type": "string" },
+        "ShipMethod": { "type": "string" },
+        "Terms": { "type": "string" }
+      }
+    },
+    "InvoiceDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["InvoiceLineItems"],
+      "properties": {
+        "InvoiceLineItems": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InvoiceLineItem" }
+        }
+      }
+    },
+    "InvoiceFooter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Subtotal", "Total", "Addons"],
+      "properties": {
+        "Subtotal": { "type": "string" },
+        "Total": { "type": "string" },
+        "Addons": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Addon" }
+        }
+      }
+    },
+    "InvoiceModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Header", "Details", "Footer"],
+      "properties": {
+        "Header": { "$ref": "#/$defs/InvoiceHeader" },
+        "Details": { "$ref": "#/$defs/InvoiceDetails" },
+        "Footer": { "$ref": "#/$defs/InvoiceFooter" }
+      }
+    },
+    "InvoiceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "InvoiceModel",
+        "pdfContent",
+        "invoiceStatus",
+        "resultMessage",
+        "pageRanges"
+      ],
+      "properties": {
+        "InvoiceModel": { "$ref": "#/$defs/InvoiceModel" },
+        "pdfContent": { "type": "string" },
+        "invoiceStatus": { "type": "string" },
+        "resultMessage": { "type": "string" },
+        "pageRanges": {
+          "type": "array",
+          "items": { "type": "integer" }
+        }
+      }
+    }
+  },
+  "examples": [
+    [
+      {
+        "InvoiceModel": {
+          "Header": {
+            "InvoiceNumber": "INV-1001",
+            "InvoiceDate": "20260331",
+            "OrderNumber": "SO-2002",
+            "OrderDate": "20260330",
+            "Salesperson": "",
+            "CustomerNumber": "C-001",
+            "CustomerPurchaseOrder": "PO-7788",
+            "VendorAddress": {
+              "Name": "Vendor Inc",
+              "Address1": "123 Main St",
+              "Address2": "",
+              "AddressOther": "",
+              "City": "New York",
+              "State": "NY",
+              "Zip": "10001",
+              "Phone": "",
+              "Fax": ""
+            },
+            "BillToAddress": {
+              "Name": "Customer LLC",
+              "Address1": "456 Park Ave",
+              "Address2": "",
+              "AddressOther": "",
+              "City": "New York",
+              "State": "NY",
+              "Zip": "10022",
+              "Phone": "",
+              "Fax": ""
+            },
+            "ShipToAddress": {
+              "Name": "Customer Warehouse",
+              "Address1": "789 Industrial Rd",
+              "Address2": "",
+              "AddressOther": "",
+              "City": "Bronx",
+              "State": "NY",
+              "Zip": "10470",
+              "Phone": "",
+              "Fax": ""
+            },
+            "VendorName": "Vendor Inc",
+            "ShipMethod": "Ground",
+            "Terms": "NET 30"
+          },
+          "Details": {
+            "InvoiceLineItems": [
+              {
+                "LineNumber": "1",
+                "ItemName": "Apples",
+                "ItemId": "APL-01",
+                "Unit": "CS",
+                "CatchWeight": "",
+                "QtyOrdered": "10",
+                "QtyShipped": "10",
+                "QtyBackOrdered": "0",
+                "Price": "20.00",
+                "ExtendedPrice": "200.00",
+                "Addons": []
+              }
+            ]
+          },
+          "Footer": {
+            "Subtotal": "200.00",
+            "Total": "216.50",
+            "Addons": [
+              {
+                "addonSubType": "tax",
+                "addonSubTypeId": "2",
+                "amount": "16.50"
+              }
+            ]
+          }
+        },
+        "pdfContent": "",
+        "invoiceStatus": "1",
+        "resultMessage": "",
+        "pageRanges": [1]
+      }
+    ]
+  ]
+}

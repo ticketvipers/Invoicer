@@ -58,13 +58,25 @@ document.getElementById('expInput').addEventListener('change', e => {
   const fs = [...e.target.files].filter(f => f.name.match(/\.json$/i));
   e.target.value = '';  // reset so same files can be re-selected
   if (!fs.length) return;
-  loadExpected(fs).then(n => {
-    document.getElementById('expMeta').textContent = `${n} JSON(s) loaded`;
-    document.getElementById('expBadge').textContent = n;
-    document.getElementById('expBadge').style.display = '';
-    document.getElementById('expRow').classList.add('loaded');
-  });
+  loadExpected(fs).then(updateExpectedLoadUI);
 });
+
+function updateExpectedLoadUI(n) {
+  document.getElementById('expMeta').textContent = `${n} JSON(s) loaded`;
+  document.getElementById('expBadge').textContent = n;
+  document.getElementById('expBadge').style.display = '';
+  document.getElementById('expRow').classList.add('loaded');
+}
+
+function resetLoadUI() {
+  document.getElementById('pdfMeta').textContent = 'Click to select PDF files';
+  document.getElementById('expMeta').textContent = 'Click to select expected JSON files';
+  document.getElementById('pdfBadge').style.display = 'none';
+  document.getElementById('expBadge').style.display = 'none';
+  document.getElementById('pdfRow').classList.remove('loaded');
+  document.getElementById('expRow').classList.remove('loaded');
+}
+
 function onDragOver(e) { 
   e.preventDefault(); 
   e.stopPropagation();
@@ -83,7 +95,8 @@ function onDrop(e) {
   document.getElementById('fileQueue').style.outline = '';
   const all = [...e.dataTransfer.files];
   addPDFs(all.filter(f => f.name.match(/\.pdf$/i)));
-  loadExpected(all.filter(f => f.name.match(/\.json$/i)));
+  const jsons = all.filter(f => f.name.match(/\.json$/i));
+  if (jsons.length) loadExpected(jsons).then(updateExpectedLoadUI);
 }
 
 // ── File management ────────────────────────────────────────────────────────
@@ -136,6 +149,7 @@ async function loadExpected(files) {
 function clearAll() {
   S.files=[]; S.pending={}; S.activeId=null;
   document.getElementById('parseBtn').disabled = true;
+  resetLoadUI();
   renderQueue(); renderContent();
 }
 
